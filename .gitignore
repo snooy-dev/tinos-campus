@@ -10,3 +10,6 @@
 
 # Visual Studio user settings
 *.user
+
+# Agents
+AGENTS.md

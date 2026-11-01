@@ -18,7 +18,7 @@ Select the following in Visual Studio Installer:
 
 Choose one of the following options.
 
-### Bundled with Visual Studio
+### Bundled with Visual Studio (Recommended)
 
 Install **vcpkg package manager** from **Individual components** in Visual Studio Installer. Then run the following command once in **Developer PowerShell for Visual Studio 2026** to enable integration:
 
