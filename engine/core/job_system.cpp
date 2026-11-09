@@ -215,8 +215,8 @@ void JobSystem::Run(bool io, std::size_t index)
         }
         job->complete.notify_all();
         for (const auto& successor : successors) Ready(successor);
-        outstanding_.fetch_sub(1, std::memory_order_acq_rel);
-        outstanding_.notify_all();
+        if (outstanding_.fetch_sub(1, std::memory_order_acq_rel) == 1)
+            outstanding_.notify_one();
     }
     worker_system = nullptr;
 }
