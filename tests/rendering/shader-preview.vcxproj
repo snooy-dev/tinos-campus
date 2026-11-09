@@ -14,7 +14,7 @@
     <VCProjectVersion>18.0</VCProjectVersion>
     <Keyword>Win32Proj</Keyword>
     <ProjectGuid>{de17f7a7-2645-4689-95ad-fca975ba833c}</ProjectGuid>
-    <ProjectName>LitTreePreview</ProjectName>
+    <ProjectName>ShaderPreview</ProjectName>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -29,17 +29,16 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup>
-    <PreviewAssets>$(MSBuildProjectDirectory)\..\build\lit-tree-preview</PreviewAssets>
-    <OutDir>$(MSBuildProjectDirectory)\..\bin\lit-tree-preview\$(Configuration)\</OutDir>
-    <IntDir>$(PreviewAssets)\$(Configuration)\</IntDir>
-    <TargetName>LitTreePreview</TargetName>
-    <LocalDebuggerCommandArguments>"$(PreviewAssets)\Hardwood.obj" "$(PreviewAssets)\Textures" "$(MSBuildProjectDirectory)\..\contents\shaders"</LocalDebuggerCommandArguments>
+    <OutDir>$(MSBuildProjectDirectory)\..\..\bin\shader-preview\$(Configuration)\</OutDir>
+    <IntDir>$(MSBuildProjectDirectory)\..\..\build\shader-preview\$(Configuration)\</IntDir>
+    <TargetName>ShaderPreview</TargetName>
+    <LocalDebuggerCommandArguments>"$(MSBuildProjectDirectory)\preview.ini"</LocalDebuggerCommandArguments>
     <DebuggerFlavor>WindowsLocalDebugger</DebuggerFlavor>
   </PropertyGroup>
   <PropertyGroup Label="Vcpkg">
     <VcpkgEnableManifest>true</VcpkgEnableManifest>
-    <VcpkgManifestRoot>$(MSBuildProjectDirectory)\..\</VcpkgManifestRoot>
-    <VcpkgInstalledDir>$(MSBuildProjectDirectory)\..\third_party\vcpkg_installed\</VcpkgInstalledDir>
+    <VcpkgManifestRoot>$(MSBuildProjectDirectory)\..\..\</VcpkgManifestRoot>
+    <VcpkgInstalledDir>$(MSBuildProjectDirectory)\..\..\third_party\vcpkg_installed\</VcpkgInstalledDir>
   </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>
@@ -54,9 +53,10 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="lit_tree_preview.cpp" />
-    <None Include="..\contents\shaders\lit.vert" />
-    <None Include="..\contents\shaders\lit.frag" />
+    <ClCompile Include="shader_preview.cpp" />
+    <None Include="preview.ini" />
+    <None Include="..\..\contents\shaders\lit.vert" />
+    <None Include="..\..\contents\shaders\lit.frag" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
 </Project>

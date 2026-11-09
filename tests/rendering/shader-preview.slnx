@@ -2,5 +2,5 @@
   <Configurations>
     <Platform Name="x64" />
   </Configurations>
-  <Project Path="lit-tree-preview.vcxproj" Id="de17f7a7-2645-4689-95ad-fca975ba833c" />
+  <Project Path="shader-preview.vcxproj" Id="de17f7a7-2645-4689-95ad-fca975ba833c" />
 </Solution>

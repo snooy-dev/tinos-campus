@@ -12,12 +12,14 @@
 
 #include <algorithm>
 #include <array>
+#include <cmath>
 #include <cstddef>
 #include <cstdint>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <limits>
+#include <map>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -35,8 +37,25 @@ struct Vertex
     glm::vec2 uv;
 };
 
-enum Material { Canopy, Trunk, Leaf, MaterialCount };
-using Meshes = std::array<std::vector<Vertex>, MaterialCount>;
+struct Material
+{
+    glm::vec3 color{1.0f};
+    fs::path colorTexture;
+    fs::path alphaMask;
+};
+
+struct Mesh
+{
+    std::vector<Vertex> vertices;
+    Material material;
+};
+
+struct PreviewFiles
+{
+    fs::path model;
+    fs::path vertexShader;
+    fs::path fragmentShader;
+};
 
 void Require(bool condition, const std::string& message)
 {
@@ -44,14 +63,102 @@ void Require(bool condition, const std::string& message)
         throw std::runtime_error(message);
 }
 
-Meshes ReadTree(const fs::path& path)
+std::string ReadValue(std::istream& row)
+{
+    std::string value;
+    std::getline(row >> std::ws, value);
+    if (const auto end = value.find_last_not_of(" \t\r"); end != std::string::npos)
+        value.erase(end + 1);
+    if (value.size() >= 2 && value.front() == '"' && value.back() == '"')
+        value = value.substr(1, value.size() - 2);
+    return value;
+}
+
+fs::path PathFromUtf8(const std::string& value)
+{
+    return fs::path(std::u8string(value.begin(), value.end()));
+}
+
+PreviewFiles ReadSettings(const fs::path& path)
+{
+    std::ifstream input(path);
+    Require(input.good(), "Cannot open preview settings: " + path.string());
+    PreviewFiles files;
+    for (std::string line; std::getline(input, line);)
+    {
+        std::istringstream row(line);
+        std::string key;
+        if (!std::getline(row >> std::ws, key, '=') || key.starts_with('#'))
+            continue;
+        key.erase(key.find_last_not_of(" \t") + 1);
+        const auto value = ReadValue(row);
+        Require(!value.empty(), "Missing path for " + key);
+        const auto file = path.parent_path() / PathFromUtf8(value);
+        if (key == "model")
+            files.model = file;
+        else if (key == "vertex")
+            files.vertexShader = file;
+        else if (key == "fragment")
+            files.fragmentShader = file;
+        else
+            throw std::runtime_error("Unknown preview setting: " + key);
+    }
+    Require(!files.model.empty() && !files.vertexShader.empty() && !files.fragmentShader.empty(),
+        "Set model, vertex, and fragment in the preview settings");
+    return files;
+}
+
+fs::path ResolveTexture(const fs::path& directory, const std::string& value)
+{
+    Require(!value.empty(), "MTL texture path is missing");
+    const auto file = PathFromUtf8(value);
+    const auto original = directory / file;
+    if (fs::is_regular_file(original))
+        return original;
+    return directory / "Textures" / file.filename();
+}
+
+void ReadMaterials(const fs::path& path, std::map<std::string, Material>& materials)
+{
+    std::ifstream input(path);
+    Require(input.good(), "Cannot open MTL: " + path.string());
+    Material* material = nullptr;
+    for (std::string line; std::getline(input, line);)
+    {
+        std::istringstream row(line);
+        std::string tag;
+        row >> tag;
+        if (tag == "newmtl")
+            material = &materials[ReadValue(row)];
+        else if (material && tag == "Kd")
+            Require(bool(row >> material->color.r >> material->color.g >> material->color.b),
+                "Invalid MTL diffuse color");
+        else if (material && tag == "map_Kd")
+            material->colorTexture = ResolveTexture(path.parent_path(), ReadValue(row));
+        else if (material && tag == "map_d")
+            material->alphaMask = ResolveTexture(path.parent_path(), ReadValue(row));
+    }
+}
+
+std::size_t ObjIndex(const std::string& token, std::size_t count)
+{
+    std::size_t end = 0;
+    const auto index = std::stoll(token, &end);
+    const auto resolved = index > 0 ? index - 1 : static_cast<long long>(count) + index;
+    Require(end == token.size() && index != 0 && resolved >= 0 &&
+        static_cast<std::size_t>(resolved) < count, "OBJ index out of range: " + token);
+    return static_cast<std::size_t>(resolved);
+}
+
+std::vector<Mesh> ReadMeshes(const fs::path& path)
 {
     std::ifstream input(path);
     Require(input.good(), "Cannot open OBJ: " + path.string());
     std::vector<glm::vec3> positions, normals;
     std::vector<glm::vec2> uvs;
-    Meshes meshes;
-    int material = -1;
+    std::map<std::string, Material> materials;
+    std::map<std::string, std::vector<Vertex>> batches;
+    std::string materialName;
 
     for (std::string line; std::getline(input, line);)
     {
@@ -70,39 +177,43 @@ Meshes ReadTree(const fs::path& path)
             Require(bool(row >> value.x >> value.y), "Invalid OBJ UV");
             uvs.push_back(value);
         }
+        else if (tag == "mtllib")
+            ReadMaterials(path.parent_path() / PathFromUtf8(ReadValue(row)), materials);
         else if (tag == "usemtl")
-        {
-            std::string name;
-            row >> name;
-            if (name.starts_with("Hardwood_inner_canopy_"))
-                material = Canopy;
-            else if (name.starts_with("Hardwood_trunk_"))
-                material = Trunk;
-            else if (name.starts_with("Oak_leaves_"))
-                material = Leaf;
-            else
-                throw std::runtime_error("Unexpected Hardwood material: " + name);
-        }
+            materialName = ReadValue(row);
         else if (tag == "f")
         {
-            Require(material >= 0, "OBJ face has no material");
+            auto& batch = batches[materialName];
+            const auto material = materials.find(materialName);
+            const bool textured = material != materials.end() &&
+                (!material->second.colorTexture.empty() || !material->second.alphaMask.empty());
             for (int corner = 0; corner < 3; ++corner)
             {
-                std::size_t position = 0, uv = 0, normal = 0;
-                char slash1 = 0, slash2 = 0;
-                Require(bool(row >> position >> slash1 >> uv >> slash2 >> normal) &&
-                    slash1 == '/' && slash2 == '/' && position && uv && normal,
-                    "Expected a triangulated OBJ with position/UV/normal indices");
-                meshes[material].push_back({ positions.at(position - 1),
-                    normals.at(normal - 1), uvs.at(uv - 1) });
+                std::string token;
+                Require(bool(row >> token), "Incomplete OBJ triangle");
+                const auto slash1 = token.find('/');
+                const auto slash2 = slash1 == std::string::npos ? slash1 : token.find('/', slash1 + 1);
+                Require(slash2 != std::string::npos && slash2 + 1 < token.size(),
+                    "Export the OBJ with Normals enabled");
+                const auto uv = token.substr(slash1 + 1, slash2 - slash1 - 1);
+                Require(!textured || !uv.empty(), "Textured OBJ material needs UV coordinates");
+                batch.push_back({ positions.at(ObjIndex(token.substr(0, slash1), positions.size())),
+                    normals.at(ObjIndex(token.substr(slash2 + 1), normals.size())),
+                    uv.empty() ? glm::vec2(0.0f) : uvs.at(ObjIndex(uv, uvs.size())) });
             }
             std::string extra;
-            Require(!(row >> extra), "Export Hardwood.obj with Triangulated Mesh enabled");
+            Require(!(row >> extra) || extra.starts_with('#'),
+                "Export the OBJ with Triangulated Mesh enabled");
         }
     }
 
-    for (const auto& mesh : meshes)
-        Require(!mesh.empty(), "Hardwood OBJ is missing the canopy, trunk, or leaves");
+    Require(!batches.empty(), "OBJ contains no triangles");
+    std::vector<Mesh> meshes;
+    for (auto& [name, vertices] : batches)
+    {
+        Require(name.empty() || materials.contains(name), "Undefined OBJ material: " + name);
+        meshes.push_back({ std::move(vertices), name.empty() ? Material{} : materials.at(name) });
+    }
     return meshes;
 }
 
@@ -162,13 +273,13 @@ GLuint Compile(GLenum stage, const fs::path& path)
     return shader;
 }
 
-GLuint CreateProgram(const fs::path& shaders)
+GLuint CreateProgram(const PreviewFiles& files)
 {
     const GLuint program = glCreateProgram();
-    for (const auto& [stage, name] : std::array{
-        std::pair{GL_VERTEX_SHADER, "lit.vert"}, std::pair{GL_FRAGMENT_SHADER, "lit.frag"} })
+    for (const auto& [stage, path] : std::array{
+        std::pair{GL_VERTEX_SHADER, files.vertexShader}, std::pair{GL_FRAGMENT_SHADER, files.fragmentShader} })
     {
-        const GLuint shader = Compile(stage, shaders / name);
+        const GLuint shader = Compile(stage, path);
         glAttachShader(program, shader);
         glDeleteShader(shader);
     }
@@ -189,6 +300,9 @@ struct DrawMesh
     GLuint vao = 0;
     GLuint vbo = 0;
     GLsizei vertices = 0;
+    glm::vec3 color{1.0f};
+    GLuint colorTexture = 0;
+    GLuint alphaMask = 0;
 };
 
 DrawMesh UploadMesh(const std::vector<Vertex>& vertices)
@@ -225,16 +339,31 @@ void Capture(const fs::path& path, int width, int height)
     Require(out.good(), "Cannot write capture: " + path.string());
 }
 
-void Preview(const fs::path& obj, const fs::path& textures, const fs::path& shaders,
-    const fs::path& captureDirectory)
+void Preview(const PreviewFiles& files, const fs::path& captureDirectory)
 {
-    const auto meshes = ReadTree(obj);
+    const auto meshes = ReadMeshes(files.model);
+    auto minimum = meshes.front().vertices.front().position;
+    auto maximum = minimum;
+    std::size_t triangleCount = 0;
+    for (const auto& mesh : meshes)
+    {
+        triangleCount += mesh.vertices.size() / 3;
+        for (const auto& vertex : mesh.vertices)
+        {
+            minimum = glm::min(minimum, vertex.position);
+            maximum = glm::max(maximum, vertex.position);
+        }
+    }
+    const auto center = (minimum + maximum) * 0.5f;
+    const float radius = glm::length(maximum - minimum) * 0.5f;
+    Require(std::isfinite(radius) && radius > 0.0f, "Invalid model bounds");
+
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_VISIBLE, captureDirectory.empty() ? GLFW_TRUE : GLFW_FALSE);
     GLFWwindow* window = glfwCreateWindow(1120, 600,
-        "Hardwood | Left light / Right light | M: leaf mask | Esc: exit", nullptr, nullptr);
+        "Shader Preview | Left light / Right light | M: alpha mask | Esc: exit", nullptr, nullptr);
     Require(window != nullptr, "Cannot open an OpenGL 3.3 window");
     glfwMakeContextCurrent(window);
     glewExperimental = GL_TRUE;
@@ -245,62 +374,71 @@ void Preview(const fs::path& obj, const fs::path& textures, const fs::path& shad
     ComPtr<IWICImagingFactory> wic;
     Require(SUCCEEDED(CoCreateInstance(CLSID_WICImagingFactory, nullptr,
         CLSCTX_INPROC_SERVER, IID_PPV_ARGS(wic.GetAddressOf()))), "WIC initialization failed");
-    const std::array baseTextures{
-        LoadTexture(*wic.Get(), textures / "T_HardwoodTree_Canopy.png"),
-        LoadTexture(*wic.Get(), textures / "T_HardwoodTree_Trunk.png"),
-        LoadTexture(*wic.Get(), textures / "T_HardwoodTree_Leaf.png")
-    };
-    const auto maskTexture = LoadTexture(*wic.Get(), textures / "T_HardwoodTree_Leaf_O.png");
-    const std::array drawMeshes{ UploadMesh(meshes[Canopy]), UploadMesh(meshes[Trunk]),
-        UploadMesh(meshes[Leaf]) };
+    std::vector<DrawMesh> drawMeshes;
+    for (const auto& mesh : meshes)
+    {
+        auto drawMesh = UploadMesh(mesh.vertices);
+        drawMesh.color = mesh.material.color;
+        if (!mesh.material.colorTexture.empty())
+            drawMesh.colorTexture = LoadTexture(*wic.Get(), mesh.material.colorTexture);
+        if (!mesh.material.alphaMask.empty())
+            drawMesh.alphaMask = LoadTexture(*wic.Get(), mesh.material.alphaMask);
+        drawMeshes.push_back(drawMesh);
+    }
 
-    const GLuint program = CreateProgram(shaders);
+    const GLuint program = CreateProgram(files);
     glUseProgram(program);
     const auto uniform = [program](const char* name)
     {
-        const auto location = glGetUniformLocation(program, name);
-        Require(location >= 0, std::string("Missing shader uniform: ") + name);
-        return location;
+        return glGetUniformLocation(program, name);
     };
+    const auto viewLocation = uniform("uView");
     const auto projection = uniform("uProjection");
     const auto light = uniform("uLightDirection");
     const auto useMask = uniform("uUseAlphaMask");
+    const auto baseColor = uniform("uBaseColor");
+    const auto useColorTexture = uniform("uUseBaseColorTexture");
     const glm::mat4 model{1.0f};
-    const auto view = glm::lookAt(glm::vec3(0, 3.0f, 11.5f), glm::vec3(0, 2.6f, 0),
-        glm::vec3(0, 1, 0));
     glUniformMatrix4fv(uniform("uModel"), 1, GL_FALSE, glm::value_ptr(model));
-    glUniformMatrix4fv(uniform("uView"), 1, GL_FALSE, glm::value_ptr(view));
-    glUniform1i(uniform("uUseBaseColorTexture"), GL_TRUE);
     glUniform1i(uniform("uBaseColorTexture"), 0);
     glUniform1i(uniform("uAlphaMask"), 1);
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, maskTexture);
-    glActiveTexture(GL_TEXTURE0);
 
     const auto draw = [&](int width, int height, bool mask)
     {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         const int half = width / 2;
-        const auto perspective = glm::perspective(glm::radians(32.0f),
-            static_cast<float>(half) / height, 0.1f, 40.0f);
+        const float aspect = static_cast<float>(half) / height;
+        const float halfFov = glm::radians(16.0f);
+        const float fitAngle = std::min(halfFov, std::atan(std::tan(halfFov) * aspect));
+        const float distance = 1.1f * radius / std::sin(fitAngle);
+        const auto view = glm::lookAt(center + glm::normalize(glm::vec3(0, 0.06f, 1)) * distance,
+            center, glm::vec3(0, 1, 0));
+        const auto perspective = glm::perspective(2.0f * halfFov, aspect,
+            distance - radius * 1.5f, distance + radius * 1.5f);
+        glUniformMatrix4fv(viewLocation, 1, GL_FALSE, glm::value_ptr(view));
         glUniformMatrix4fv(projection, 1, GL_FALSE, glm::value_ptr(perspective));
         for (int side = 0; side < 2; ++side)
         {
             glViewport(side * half, 0, half, height);
             glUniform3f(light, side == 0 ? -1.0f : 1.0f, 0.55f, 0.5f);
-            for (int part = 0; part < MaterialCount; ++part)
+            for (const auto& mesh : drawMeshes)
             {
-                glUniform1i(useMask, mask && part == Leaf);
-                glBindTexture(GL_TEXTURE_2D, baseTextures[part]);
-                glBindVertexArray(drawMeshes[part].vao);
-                glDrawArrays(GL_TRIANGLES, 0, drawMeshes[part].vertices);
+                glUniform4f(baseColor, mesh.color.r, mesh.color.g, mesh.color.b, 1.0f);
+                glUniform1i(useColorTexture, mesh.colorTexture != 0);
+                glUniform1i(useMask, mask && mesh.alphaMask != 0);
+                glActiveTexture(GL_TEXTURE0);
+                glBindTexture(GL_TEXTURE_2D, mesh.colorTexture);
+                glActiveTexture(GL_TEXTURE1);
+                glBindTexture(GL_TEXTURE_2D, mesh.alphaMask);
+                glBindVertexArray(mesh.vao);
+                glDrawArrays(GL_TRIANGLES, 0, mesh.vertices);
             }
         }
     };
 
     std::cout << "OpenGL " << glGetString(GL_VERSION) << '\n';
-    std::cout << "Loaded " << (meshes[Canopy].size() + meshes[Trunk].size() +
-        meshes[Leaf].size()) / 3 << " triangles\n";
+    std::cout << "Loaded " << triangleCount << " triangles from " << files.model.string() << '\n';
+    std::cout << "Shaders: " << files.vertexShader.string() << " + " << files.fragmentShader.string() << '\n';
     bool mask = true;
     glfwSetWindowUserPointer(window, &mask);
     glfwSetKeyCallback(window, [](GLFWwindow* current, int key, int, int action, int)
@@ -310,8 +448,8 @@ void Preview(const fs::path& obj, const fs::path& textures, const fs::path& shad
             auto& enabled = *static_cast<bool*>(glfwGetWindowUserPointer(current));
             enabled = !enabled;
             glfwSetWindowTitle(current, enabled ?
-                "Hardwood | Left light / Right light | Mask ON (M) | Esc: exit" :
-                "Hardwood | Left light / Right light | Mask OFF (M) | Esc: exit");
+                "Shader Preview | Left light / Right light | Mask ON (M) | Esc: exit" :
+                "Shader Preview | Left light / Right light | Mask OFF (M) | Esc: exit");
         }
         if (action == GLFW_PRESS && key == GLFW_KEY_ESCAPE)
             glfwSetWindowShouldClose(current, GLFW_TRUE);
@@ -341,9 +479,9 @@ void Preview(const fs::path& obj, const fs::path& textures, const fs::path& shad
 
 int wmain(int argc, wchar_t** argv)
 {
-    if (argc != 1 && argc != 4 && argc != 5)
+    if (argc != 2 && argc != 3)
     {
-        std::cerr << "Usage: LitTreePreview <Hardwood.obj> <Textures> <shaders> [capture-directory]\n";
+        std::cerr << "Usage: ShaderPreview <preview.ini> [capture-directory]\n";
         return 2;
     }
     const bool initializedCom = SUCCEEDED(CoInitializeEx(nullptr, COINIT_APARTMENTTHREADED));
@@ -352,14 +490,7 @@ int wmain(int argc, wchar_t** argv)
     {
         Require(initializedCom, "COM initialization failed");
         Require(glfwInit() == GLFW_TRUE, "GLFW initialization failed");
-        if (argc == 1)
-        {
-            const auto directory = fs::absolute(argv[0]).parent_path();
-            Preview(directory / "Hardwood.obj", directory / "Textures",
-                directory / "../../contents/shaders", {});
-        }
-        else
-            Preview(argv[1], argv[2], argv[3], argc == 5 ? fs::path(argv[4]) : fs::path{});
+        Preview(ReadSettings(argv[1]), argc == 3 ? fs::path(argv[2]) : fs::path{});
     }
     catch (const std::exception& error)
     {
