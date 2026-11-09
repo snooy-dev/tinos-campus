@@ -25,7 +25,6 @@ std::expected<void, const char*> Application::Initialize()
     assert(std::this_thread::get_id() == owner_thread_);
     if (window_)
     {
-        assert(glfwGetCurrentContext() == window_);
         return {};
     }
     if (glfw_in_use)
@@ -79,14 +78,6 @@ std::expected<void, const char*> Application::Initialize()
     state_.focused = glfwGetWindowAttrib(window_, GLFW_FOCUSED) == GLFW_TRUE;
     state_.minimized = glfwGetWindowAttrib(window_, GLFW_ICONIFIED) == GLFW_TRUE;
     state_.close_requested = false;
-    glfwMakeContextCurrent(window_);
-    if (glfwGetCurrentContext() != window_)
-    {
-        Shutdown();
-        return std::unexpected("OpenGL context activation failed.");
-    }
-
-    glfwSwapInterval(1);
     return {};
 }
 
@@ -112,17 +103,39 @@ ApplicationState Application::ProcessEvents()
     assert(window_ != nullptr);
 
     glfwPollEvents();
-    if (state_.minimized && !glfwWindowShouldClose(window_))
-        glfwWaitEvents();
-
     state_.close_requested = glfwWindowShouldClose(window_) == GLFW_TRUE;
 
     return state_;
 }
 
-void Application::Present()
+void Application::WaitEvents()
 {
     assert(std::this_thread::get_id() == owner_thread_);
+    assert(window_ != nullptr);
+    glfwWaitEvents();
+}
+
+std::expected<void, const char*> Application::ActivateContext()
+{
+    assert(std::this_thread::get_id() != owner_thread_);
+    assert(window_ != nullptr);
+    glfwMakeContextCurrent(window_);
+    if (glfwGetCurrentContext() != window_)
+        return std::unexpected("OpenGL context activation failed.");
+
+    glfwSwapInterval(1);
+    return {};
+}
+
+void Application::ReleaseContext()
+{
+    assert(std::this_thread::get_id() != owner_thread_);
+    assert(glfwGetCurrentContext() == window_);
+    glfwMakeContextCurrent(nullptr);
+}
+
+void Application::Present()
+{
     assert(window_ != nullptr);
     assert(glfwGetCurrentContext() == window_);
     glfwSwapBuffers(window_);
