@@ -4,6 +4,20 @@ module Engine;
 
 import <cassert>;
 
+Engine::~Engine()
+{
+    Shutdown();
+}
+
+void Engine::Shutdown()
+{
+    jobs_.Drain();
+    renderer_.Shutdown();
+    jobs_.Shutdown();
+    application_.Shutdown();
+    initialized_ = false;
+}
+
 std::expected<void, const char*> Engine::Initialize()
 {
     if (initialized_)
@@ -13,14 +27,14 @@ std::expected<void, const char*> Engine::Initialize()
     if (!application_result)
         return std::unexpected(application_result.error());
 
-    const auto renderer_result = renderer_.Initialize(application_);
+    jobs_.Initialize();
+    const auto renderer_result = renderer_.Initialize(application_, jobs_);
     if (!renderer_result)
     {
-        application_.Shutdown();
+        Shutdown();
         return std::unexpected(renderer_result.error());
     }
 
-    jobs_.Initialize();
     initialized_ = true;
     return {};
 }
@@ -31,6 +45,7 @@ void Engine::Run()
     std::optional<std::chrono::steady_clock::time_point> previous_time;
     while (true)
     {
+        renderer_.WaitForFrameSlot();
         const auto state = ProcessInput();
         if (state.close_requested)
         {
@@ -53,10 +68,7 @@ void Engine::Run()
         renderer_.SubmitFrame({ state.framebuffer_width, state.framebuffer_height });
     }
 
-    jobs_.Shutdown();
-    renderer_.Shutdown();
-    application_.Shutdown();
-    initialized_ = false;
+    Shutdown();
 }
 
 ApplicationState Engine::ProcessInput()

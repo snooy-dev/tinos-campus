@@ -7,7 +7,8 @@ import Debug;
 namespace
 {
 thread_local JobSystem* worker_system = nullptr;
-thread_local bool worker_io = false;
+thread_local JobTarget worker_target = JobTarget::Cpu;
+thread_local bool executing_task = false;
 thread_local std::size_t worker_index = 0;
 void Require(bool condition)
 {
@@ -35,7 +36,11 @@ JobSystem::~JobSystem() { Shutdown(); }
 void JobSystem::Initialize(unsigned cpu_workers, unsigned io_workers)
 {
     Require(std::this_thread::get_id() == owner_ && !worker_system);
-    if (generation_) return;
+    if (generation_)
+    {
+        Require(!draining_.load());
+        return;
+    }
     Require(io_workers != 0);
     if (!cpu_workers)
     {
@@ -47,25 +52,37 @@ void JobSystem::Initialize(unsigned cpu_workers, unsigned io_workers)
 #endif
     generation_ = std::make_shared<JobGeneration>(owner_);
     stopping_.store(false);
+    draining_.store(false);
+    render_stopping_.store(false);
+    last_render_ = {};
     for (unsigned i = 0; i < cpu_workers; ++i)
         cpu_.local.push_back(std::make_unique<Queue>());
     const auto handler = std::get_terminate();
     for (unsigned i = 0; i < cpu_workers; ++i)
-        cpu_.threads.emplace_back([this, i, handler] { std::set_terminate(handler); Run(false, i); });
+        cpu_.threads.emplace_back([this, i, handler] { std::set_terminate(handler); Run(JobTarget::Cpu, i); });
     for (unsigned i = 0; i < io_workers; ++i)
-        io_.threads.emplace_back([this, i, handler] { std::set_terminate(handler); Run(true, i); });
+        io_.threads.emplace_back([this, i, handler] { std::set_terminate(handler); Run(JobTarget::Io, i); });
 }
 
-void JobSystem::Shutdown()
+void JobSystem::Drain()
 {
     Require(std::this_thread::get_id() == owner_ && !worker_system);
     if (!generation_) return;
+    draining_.store(true, std::memory_order_release);
     auto pending = outstanding_.load(std::memory_order_acquire);
     while (pending)
     {
         outstanding_.wait(pending, std::memory_order_acquire);
         pending = outstanding_.load(std::memory_order_acquire);
     }
+}
+
+void JobSystem::Shutdown()
+{
+    Require(std::this_thread::get_id() == owner_ && !worker_system);
+    Require(!render_attached_.load(std::memory_order_acquire));
+    if (!generation_) return;
+    Drain();
     stopping_.store(true, std::memory_order_release);
     for (auto* pool : { &cpu_, &io_ })
     {
@@ -74,43 +91,84 @@ void JobSystem::Shutdown()
         pool->threads.clear();
         pool->local.clear();
     }
+    last_render_ = {};
     generation_.reset();
 }
 
 JobHandle JobSystem::SubmitCpu(std::move_only_function<void()> job, std::span<const JobHandle> prerequisites)
 {
-    return Submit(std::move(job), prerequisites, false);
+    return Submit(std::move(job), prerequisites, JobTarget::Cpu);
 }
 
 JobHandle JobSystem::SubmitIo(std::move_only_function<void()> job, std::span<const JobHandle> prerequisites)
 {
-    return Submit(std::move(job), prerequisites, true);
+    return Submit(std::move(job), prerequisites, JobTarget::Io);
 }
 
-JobHandle JobSystem::Submit(std::move_only_function<void()> body, std::span<const JobHandle> prerequisites, bool io)
+JobHandle JobSystem::SubmitRender(std::move_only_function<void()> job,
+    std::span<const JobHandle> prerequisites)
+{
+    const std::lock_guard lock(render_submission_mutex_);
+    auto handle = Submit(std::move(job), prerequisites, JobTarget::Render, last_render_.state_);
+    last_render_ = handle;
+    return handle;
+}
+
+void JobSystem::AttachRenderThread()
+{
+    Require(!worker_system && std::this_thread::get_id() != owner_);
+    Require(generation_ && !draining_.load());
+    bool expected = false;
+    Require(render_attached_.compare_exchange_strong(expected, true));
+    worker_system = this;
+    worker_target = JobTarget::Render;
+}
+
+void JobSystem::RunRenderTasks()
+{
+    Require(worker_system == this && worker_target == JobTarget::Render && !executing_task);
+    Run(JobTarget::Render, 0);
+}
+
+void JobSystem::StopRenderTasks()
+{
+    Require(std::this_thread::get_id() == owner_ && !worker_system);
+    Require(draining_.load() && outstanding_.load(std::memory_order_acquire) == 0);
+    render_stopping_.store(true, std::memory_order_release);
+    render_.epoch.fetch_add(1, std::memory_order_release);
+    render_.epoch.notify_one();
+}
+
+JobHandle JobSystem::Submit(std::move_only_function<void()> body,
+    std::span<const JobHandle> prerequisites, JobTarget target,
+    const std::shared_ptr<JobState>& ordered_parent)
 {
     Require(worker_system == this || (!worker_system && std::this_thread::get_id() == owner_));
     Require(generation_ && bool(body));
+    Require(!draining_.load(std::memory_order_acquire) || (worker_system == this && executing_task));
+    Require(target != JobTarget::Render || render_attached_.load(std::memory_order_acquire));
     for (const auto& parent : prerequisites)
         Require(!parent.state_ || parent.state_->generation == generation_);
     auto job = std::make_shared<JobState>();
     job->generation = generation_;
     job->body = std::move(body);
-    job->io = io;
+    job->target = target;
     outstanding_.fetch_add(1, std::memory_order_relaxed);
 #ifdef _DEBUG
     waiting_.fetch_add(1, std::memory_order_relaxed);
 #endif
-    for (const auto& parent : prerequisites)
+    const auto connect = [&job](const std::shared_ptr<JobState>& parent)
     {
-        if (!parent.state_) continue;
-        std::lock_guard lock(parent.state_->mutex);
-        if (!parent.state_->complete.load(std::memory_order_relaxed))
+        if (!parent) return;
+        std::lock_guard lock(parent->mutex);
+        if (!parent->complete.load(std::memory_order_relaxed))
         {
             job->remaining.fetch_add(1, std::memory_order_relaxed);
-            parent.state_->successors.push_back(job);
+            parent->successors.push_back(job);
         }
-    }
+    };
+    for (const auto& parent : prerequisites) connect(parent.state_);
+    connect(ordered_parent);
     // Registration owns one dependency until every predecessor has been inspected.
     Ready(job);
     return JobHandle(job);
@@ -124,8 +182,10 @@ void JobSystem::Ready(const std::shared_ptr<JobState>& job)
     ready_.fetch_add(1, std::memory_order_relaxed);
     job->queued = std::chrono::steady_clock::now();
 #endif
-    auto& pool = job->io ? io_ : cpu_;
-    auto& queue = !job->io && worker_system == this && !worker_io ?
+    auto& pool = job->target == JobTarget::Render ? render_ :
+        (job->target == JobTarget::Io ? io_ : cpu_);
+    auto& queue = job->target == JobTarget::Cpu && worker_system == this &&
+        worker_target == JobTarget::Cpu ?
         *cpu_.local[worker_index] : pool.incoming;
     {
         std::lock_guard lock(queue.mutex);
@@ -144,18 +204,18 @@ std::shared_ptr<JobState> JobSystem::Pop(Queue& queue, bool back)
     return job;
 }
 
-void JobSystem::Run(bool io, std::size_t index)
+void JobSystem::Run(JobTarget target, std::size_t index)
 {
     worker_system = this;
-    worker_io = io;
+    worker_target = target;
     worker_index = index;
-    auto& pool = io ? io_ : cpu_;
+    auto& pool = target == JobTarget::Render ? render_ : (target == JobTarget::Io ? io_ : cpu_);
     std::size_t victim = index, local_streak = 0;
     while (true)
     {
         const auto epoch = pool.epoch.load(std::memory_order_acquire);
         std::shared_ptr<JobState> job;
-        if (!io)
+        if (target == JobTarget::Cpu)
         {
             if (local_streak >= 8)
             {
@@ -169,7 +229,7 @@ void JobSystem::Run(bool io, std::size_t index)
             }
         }
         if (!job) job = Pop(pool.incoming, false);
-        if (!job && !io)
+        if (!job && target == JobTarget::Cpu)
             for (std::size_t i = 0; i < pool.local.size(); ++i)
             {
                 victim = (victim + 1) % pool.local.size();
@@ -187,7 +247,9 @@ void JobSystem::Run(bool io, std::size_t index)
             }
         if (!job)
         {
-            if (stopping_.load(std::memory_order_acquire)) break;
+            const bool stop = target == JobTarget::Render ?
+                render_stopping_.load(std::memory_order_acquire) : stopping_.load(std::memory_order_acquire);
+            if (stop) break;
             pool.epoch.wait(epoch, std::memory_order_acquire);
             continue;
         }
@@ -198,8 +260,10 @@ void JobSystem::Run(bool io, std::size_t index)
             std::chrono::duration_cast<std::chrono::nanoseconds>(start - job->queued).count(),
             std::memory_order_relaxed);
 #endif
+        executing_task = true;
         job->body();
         job->body = nullptr;
+        executing_task = false;
 #ifdef _DEBUG
         execution_ns_.fetch_add(
             std::chrono::duration_cast<std::chrono::nanoseconds>(
@@ -219,6 +283,8 @@ void JobSystem::Run(bool io, std::size_t index)
             outstanding_.notify_one();
     }
     worker_system = nullptr;
+    if (target == JobTarget::Render)
+        render_attached_.store(false, std::memory_order_release);
 }
 
 JobHandle JobSystem::ParallelFor(std::size_t count, std::size_t grain,

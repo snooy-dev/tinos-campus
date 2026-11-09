@@ -8,6 +8,8 @@ struct JobGeneration
 {
     std::thread::id owner;
 };
+enum class JobTarget { Cpu, Io, Render };
+
 struct JobState
 {
     std::shared_ptr<JobGeneration> generation;
@@ -16,7 +18,7 @@ struct JobState
     std::atomic<bool> complete{false};
     std::atomic<std::size_t> remaining{1};
     std::move_only_function<void()> body;
-    bool io = false;
+    JobTarget target = JobTarget::Cpu;
 #ifdef _DEBUG
     std::chrono::steady_clock::time_point queued;
 #endif
@@ -53,6 +55,8 @@ public:
 #endif
     // Construct, initialize, shut down and destroy on the main thread.
     void Initialize(unsigned cpu_workers = 0, unsigned io_workers = 2);
+    // Closes external submissions; accepted tasks may still submit descendants.
+    void Drain();
     void Shutdown();
     // Submit from the owner or its workers; dependencies must belong to this initialization.
     // Captured references must remain valid until completion; dropping a handle does not cancel work.
@@ -60,6 +64,13 @@ public:
         std::span<const JobHandle> prerequisites = {});
     JobHandle SubmitIo(std::move_only_function<void()> job,
         std::span<const JobHandle> prerequisites = {});
+    // Render commands retain submission order as well as explicit dependencies.
+    JobHandle SubmitRender(std::move_only_function<void()> job,
+        std::span<const JobHandle> prerequisites = {});
+    // Renderer integration only: attach/run on its dedicated thread, stop on the owner after Drain.
+    void AttachRenderThread();
+    void RunRenderTasks();
+    void StopRenderTasks();
     // Body can execute concurrently; referenced data must outlive the returned handle's completion.
     JobHandle ParallelFor(std::size_t count, std::size_t grain_size,
         std::move_only_function<void(std::size_t, std::size_t)> body,
@@ -78,9 +89,10 @@ private:
         std::vector<std::jthread> threads;
     };
     JobHandle Submit(std::move_only_function<void()> job,
-        std::span<const JobHandle> prerequisites, bool io);
+        std::span<const JobHandle> prerequisites, JobTarget target,
+        const std::shared_ptr<JobState>& ordered_parent = {});
     void Ready(const std::shared_ptr<JobState>& job);
-    void Run(bool io, std::size_t index);
+    void Run(JobTarget target, std::size_t index);
     static std::shared_ptr<JobState> Pop(Queue& queue, bool back);
 #ifdef _DEBUG
     std::atomic<std::uint64_t> executed_{0}, waiting_{0}, ready_{0};
@@ -88,7 +100,12 @@ private:
 #endif
     const std::thread::id owner_{std::this_thread::get_id()};
     std::shared_ptr<JobGeneration> generation_;
-    Pool cpu_, io_;
+    Pool cpu_, io_, render_;
+    std::mutex render_submission_mutex_;
+    JobHandle last_render_;
+    std::atomic<bool> render_attached_{false};
+    std::atomic<bool> render_stopping_{false};
+    std::atomic<bool> draining_{false};
     std::atomic<std::size_t> outstanding_{0};
     std::atomic<bool> stopping_{false};
 };

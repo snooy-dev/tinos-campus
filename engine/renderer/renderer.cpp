@@ -10,16 +10,17 @@ Renderer::~Renderer()
     Shutdown();
 }
 
-std::expected<void, const char*> Renderer::Initialize(Application& application)
+std::expected<void, const char*> Renderer::Initialize(Application& application, JobSystem& jobs)
 {
     assert(std::this_thread::get_id() == owner_thread_);
     if (thread_.joinable())
     {
-        assert(application_ == &application);
+        assert(application_ == &application && jobs_ == &jobs);
         return {};
     }
 
     application_ = &application;
+    jobs_ = &jobs;
     const auto terminate_handler = std::get_terminate();
     thread_ = std::jthread([this, terminate_handler]
         {
@@ -42,32 +43,32 @@ void Renderer::Shutdown()
     if (!thread_.joinable())
         return;
 
-    {
-        const std::lock_guard lock(mutex_);
-        stopping_ = true;
-        pending_frame_.reset();
-    }
-    condition_.notify_one();
+    jobs_->Drain();
+    jobs_->StopRenderTasks();
     thread_.join();
     application_ = nullptr;
+    jobs_ = nullptr;
+    frame_fences_ = {};
+    next_frame_ = 0;
     ready_ = false;
-    stopping_ = false;
     initialization_result_ = {};
 }
 
-void Renderer::SubmitFrame(RenderFrame frame)
+void Renderer::WaitForFrameSlot()
 {
     assert(std::this_thread::get_id() == owner_thread_);
     assert(thread_.joinable());
+    frame_fences_[next_frame_].Wait();
+}
+
+JobHandle Renderer::SubmitFrame(RenderFrame frame, std::span<const JobHandle> prerequisites)
+{
     assert(frame.framebuffer_width >= 0 && frame.framebuffer_height >= 0);
-    bool notify = false;
-    {
-        const std::lock_guard lock(mutex_);
-        notify = !pending_frame_.has_value();
-        pending_frame_ = frame;
-    }
-    if (notify)
-        condition_.notify_one();
+    WaitForFrameSlot();
+    auto handle = jobs_->SubmitRender([this, frame] { Render(frame); }, prerequisites);
+    frame_fences_[next_frame_] = handle;
+    next_frame_ = (next_frame_ + 1) % frame_fences_.size();
+    return handle;
 }
 
 void Renderer::Run()
@@ -85,6 +86,9 @@ void Renderer::Run()
             glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
     }
 
+    if (result)
+        jobs_->AttachRenderThread();
+
     {
         const std::lock_guard lock(mutex_);
         initialization_result_ = result;
@@ -93,20 +97,7 @@ void Renderer::Run()
     condition_.notify_one();
 
     if (result)
-    {
-        while (true)
-        {
-            std::unique_lock lock(mutex_);
-            condition_.wait(lock, [this] { return stopping_ || pending_frame_.has_value(); });
-            if (stopping_)
-                break;
-
-            const RenderFrame frame = *pending_frame_;
-            pending_frame_.reset();
-            lock.unlock();
-            Render(frame);
-        }
-    }
+        jobs_->RunRenderTasks();
 
     if (context_result)
         application_->ReleaseContext();
