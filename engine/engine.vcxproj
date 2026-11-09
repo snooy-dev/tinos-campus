@@ -51,6 +51,8 @@
     <OutDir>$(SolutionDir)bin\$(Platform)\$(Configuration)\</OutDir>
     <IntDir>$(SolutionDir)build\$(Platform)\$(Configuration)\</IntDir>
     <TargetName>TinosCampus</TargetName>
+    <IntDir Condition="'$(EngineTestBuild)'=='true'">$(IntDir)mesh-tests/</IntDir>
+    <TargetName Condition="'$(EngineTestBuild)'=='true'">MeshTests</TargetName>
   </PropertyGroup>
   <PropertyGroup Label="Vcpkg">
     <VcpkgEnableManifest>true</VcpkgEnableManifest>
@@ -101,6 +103,9 @@
     <ClCompile Include="framework\transform.ixx" />
     <ClCompile Include="framework\framework.ixx" />
     <ClCompile Include="framework\framework.cpp" />
+    <ClCompile Include="assets\mesh_resource.ixx" />
+    <ClCompile Include="assets\mesh_resource.cpp" />
+    <ClCompile Include="renderer\mesh_renderer.cpp" />
     <ClCompile Include="core\engine.cpp" />
     <ClCompile Include="core\engine.ixx" />
     <ClCompile Include="renderer\renderer.cpp" />

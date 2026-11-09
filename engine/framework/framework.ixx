@@ -3,6 +3,7 @@ export module GameFramework;
 import std;
 import <cassert>;
 export import Transform;
+export import MeshResource;
 
 export class Scene;
 export class Actor;
@@ -33,6 +34,7 @@ public:
     T* AddComponent(Args&&... args);
     void Destroy();
     [[nodiscard]] bool IsPendingDestroy() const { return pending_destroy_; }
+    virtual void CollectRenderItems(std::vector<MeshDraw>&) const {}
     [[nodiscard]] Actor& GetActor() const { return actor_; }
     [[nodiscard]] ActorComponent* GetParent() const { return parent_; }
     [[nodiscard]] const Transform& GetLocalTransform() const { return transform_; }
@@ -51,6 +53,22 @@ private:
     mutable bool dirty_ = true;
     bool pending_destroy_ = false;
     std::vector<std::unique_ptr<ActorComponent>> children_;
+};
+
+export class MeshComponent : public ActorComponent
+{
+public:
+    using ActorComponent::ActorComponent;
+    void SetMesh(MeshHandle mesh) { mesh_ = std::move(mesh); }
+    void SetColor(glm::vec3 color) { color_ = color; }
+    void CollectRenderItems(std::vector<MeshDraw>& items) const override
+    {
+        if (auto data = mesh_.Data())
+            items.push_back({ std::move(data), GetWorldMatrix(), color_ });
+    }
+private:
+    MeshHandle mesh_;
+    glm::vec3 color_{ 1.0f };
 };
 
 export class Actor : public GameObject
@@ -98,6 +116,7 @@ public:
     }
     void Update(double delta_seconds);
     void UpdateWorldTransforms();
+    [[nodiscard]] std::vector<MeshDraw> CollectRenderItems() const;
 
 private:
     void Collect(ActorComponent& component);

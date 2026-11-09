@@ -154,3 +154,25 @@ void Scene::UpdateWorldTransforms()
                 child->UpdateWorldTransforms(world);
     }
 }
+std::vector<MeshDraw> Scene::CollectRenderItems() const
+{
+    assert(!updating_);
+    std::vector<MeshDraw> items;
+    std::vector<const ActorComponent*> pending;
+    for (const auto& actor : actors_)
+    {
+        if (actor->pending_destroy_) continue;
+        for (const auto& child : actor->children_)
+            pending.push_back(child.get());
+    }
+    while (!pending.empty())
+    {
+        const auto* component = pending.back();
+        pending.pop_back();
+        if (component->pending_destroy_) continue;
+        component->CollectRenderItems(items);
+        for (const auto& child : component->children_)
+            pending.push_back(child.get());
+    }
+    return items;
+}

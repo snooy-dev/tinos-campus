@@ -33,6 +33,9 @@
     <ClCompile Include="framework\framework.ixx"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="framework\framework.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="framework\transform.ixx"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="assets\mesh_resource.ixx"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="assets\mesh_resource.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="renderer\mesh_renderer.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="core\engine.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>

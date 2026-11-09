@@ -66,7 +66,8 @@ void Engine::Run()
         Update(delta_seconds);
         Simulate(delta_seconds);
         scene_.UpdateWorldTransforms();
-        renderer_.SubmitFrame({ state.framebuffer_width, state.framebuffer_height });
+        renderer_.SubmitFrame({ state.framebuffer_width, state.framebuffer_height,
+            view_projection_, scene_.CollectRenderItems() });
     }
 
     Shutdown();

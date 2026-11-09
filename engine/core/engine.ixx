@@ -18,6 +18,11 @@ public:
     [[nodiscard]] std::expected<void, const char*> Initialize();
     // Requires successful initialization; returns when the window closes.
     void Run();
+    [[nodiscard]] MeshHandle LoadMeshAsync(std::filesystem::path path)
+    {
+        return renderer_.LoadMeshAsync(std::move(path));
+    }
+    void SetViewProjection(const glm::mat4& matrix) { view_projection_ = matrix; }
     [[nodiscard]] Scene& GetScene() { return scene_; }
 
 private:
@@ -26,6 +31,7 @@ private:
     void Update(double delta_seconds);
     void Simulate(double delta_seconds);
 
+    glm::mat4 view_projection_{ 1.0f };
     Scene scene_;
     Application application_;
     Input input_;
