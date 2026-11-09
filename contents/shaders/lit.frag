@@ -11,7 +11,6 @@ uniform sampler2D uAlphaMask;
 
 uniform vec3 uAmbientLight = vec3(0.25);
 uniform vec3 uLightColor = vec3(0.75);
-// World-space direction from the surface toward the light.
 uniform vec3 uLightDirection = vec3(0.4, 1.0, 0.3);
 
 out vec4 fragColor;
@@ -26,7 +25,6 @@ void main()
         baseColor *= texture(uBaseColorTexture, vTexCoord);
 
     vec3 normal = normalize(vWorldNormal);
-    // Leaf cards can be drawn from either side.
     if (!gl_FrontFacing)
         normal = -normal;
 
