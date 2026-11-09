@@ -13,7 +13,7 @@ std::expected<void, const char*> Engine::Initialize()
     if (!application_result)
         return std::unexpected(application_result.error());
 
-    const auto renderer_result = renderer_.Initialize();
+    const auto renderer_result = renderer_.Initialize(application_);
     if (!renderer_result)
     {
         application_.Shutdown();
@@ -27,17 +27,47 @@ std::expected<void, const char*> Engine::Initialize()
 void Engine::Run()
 {
     assert(initialized_);
+    std::optional<std::chrono::steady_clock::time_point> previous_time;
     while (true)
     {
-        const auto state = application_.ProcessEvents();
+        const auto state = ProcessInput();
         if (state.close_requested)
         {
             break;
         }
         if (state.minimized)
+        {
+            previous_time.reset();
+            application_.WaitEvents();
             continue;
+        }
 
-        renderer_.Clear(state.framebuffer_width, state.framebuffer_height);
-        application_.Present();
+        const auto now = std::chrono::steady_clock::now();
+        const double delta_seconds = previous_time ?
+            std::chrono::duration<double>(now - *previous_time).count() : 0.0;
+        previous_time = now;
+
+        Update(delta_seconds);
+        Simulate(delta_seconds);
+        renderer_.SubmitFrame({ state.framebuffer_width, state.framebuffer_height });
     }
+
+    renderer_.Shutdown();
+    application_.Shutdown();
+    initialized_ = false;
+}
+
+ApplicationState Engine::ProcessInput()
+{
+    return application_.ProcessEvents();
+}
+
+void Engine::Update(double)
+{
+    // Game updates will be implemented here.
+}
+
+void Engine::Simulate(double)
+{
+    // Physics and other simulation systems will be implemented here.
 }

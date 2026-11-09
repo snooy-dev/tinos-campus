@@ -17,6 +17,10 @@ public:
     void Run();
 
 private:
+    ApplicationState ProcessInput();
+    void Update(double delta_seconds);
+    void Simulate(double delta_seconds);
+
     Application application_;
     Input input_;
     Renderer renderer_;

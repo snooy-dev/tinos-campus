@@ -11,6 +11,11 @@ namespace
 {
 int GuardedMain()
 {
+    std::set_terminate([]
+        {
+            Debug::ReportCrash("An unrecoverable C++ runtime failure occurred.");
+        });
+
     Engine engine;
     const auto result = engine.Initialize();
     if (!result)
@@ -76,8 +81,14 @@ int FilterCrash(unsigned long code)
     Debug::ReportCrash(message.data(), static_cast<int>(code));
 }
 
+LONG WINAPI FilterUnhandledCrash(EXCEPTION_POINTERS* exception)
+{
+    return FilterCrash(exception->ExceptionRecord->ExceptionCode);
+}
+
 int Startup()
 {
+    SetUnhandledExceptionFilter(FilterUnhandledCrash);
     __try
     {
         return GuardedMain();

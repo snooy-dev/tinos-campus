@@ -39,7 +39,7 @@
     <ClCompile Include="input\input.ixx">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="platform\windows\entry.cpp">
+    <ClCompile Include="platform\windows\main_windows.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="application\application.cpp">
