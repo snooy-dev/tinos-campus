@@ -6,6 +6,7 @@ import std;
 import Application;
 import Input;
 import Renderer;
+export import GameFramework;
 
 // Construct, initialize, run and destroy on the main thread.
 export class Engine
@@ -15,8 +16,10 @@ public:
     [[nodiscard]] std::expected<void, const char*> Initialize();
     // Requires successful initialization; returns when the window closes.
     void Run();
+    [[nodiscard]] Scene& GetScene() { return scene_; }
 
 private:
+    Scene scene_;
     Application application_;
     Input input_;
     Renderer renderer_;

@@ -29,8 +29,9 @@ public:
 
     [[nodiscard]] std::expected<void, const char*> Initialize();
     void Shutdown();
-    // Requires successful initialization; waits for events while minimized.
+    // Requires successful initialization.
     ApplicationState ProcessEvents();
+    void WaitEvents();
     // Requires successful initialization and this application's current context.
     void Present();
 

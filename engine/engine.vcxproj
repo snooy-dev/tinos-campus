@@ -96,6 +96,9 @@
     <ClCompile Include="platform\windows\debug_windows.cpp" />
     <ClCompile Include="core\debug.cpp" />
     <ClCompile Include="core\debug.ixx" />
+    <ClCompile Include="framework\transform.ixx" />
+    <ClCompile Include="framework\framework.ixx" />
+    <ClCompile Include="framework\framework.cpp" />
     <ClCompile Include="core\engine.cpp" />
     <ClCompile Include="core\engine.ixx" />
     <ClCompile Include="renderer\renderer.cpp" />

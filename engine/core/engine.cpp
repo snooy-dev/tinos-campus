@@ -27,6 +27,7 @@ std::expected<void, const char*> Engine::Initialize()
 void Engine::Run()
 {
     assert(initialized_);
+    std::optional<std::chrono::steady_clock::time_point> previous_time;
     while (true)
     {
         const auto state = application_.ProcessEvents();
@@ -35,7 +36,18 @@ void Engine::Run()
             break;
         }
         if (state.minimized)
+        {
+            previous_time.reset();
+            application_.WaitEvents();
             continue;
+        }
+
+        const auto now = std::chrono::steady_clock::now();
+        const double delta = previous_time ?
+            std::chrono::duration<double>(now - *previous_time).count() : 0.0;
+        previous_time = now;
+        scene_.Update(delta);
+        scene_.UpdateWorldTransforms();
 
         renderer_.Clear(state.framebuffer_width, state.framebuffer_height);
         application_.Present();

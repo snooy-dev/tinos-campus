@@ -112,8 +112,6 @@ ApplicationState Application::ProcessEvents()
     assert(window_ != nullptr);
 
     glfwPollEvents();
-    if (state_.minimized && !glfwWindowShouldClose(window_))
-        glfwWaitEvents();
 
     state_.close_requested = glfwWindowShouldClose(window_) == GLFW_TRUE;
 
@@ -126,4 +124,11 @@ void Application::Present()
     assert(window_ != nullptr);
     assert(glfwGetCurrentContext() == window_);
     glfwSwapBuffers(window_);
+}
+
+void Application::WaitEvents()
+{
+    assert(std::this_thread::get_id() == owner_thread_);
+    assert(window_ != nullptr);
+    glfwWaitEvents();
 }
