@@ -15,7 +15,7 @@ export struct ApplicationState
 };
 
 // Owned exclusively by Engine; only one Application may exist per process.
-// Construct, use and destroy on the main thread; keep its context current while rendering.
+// Window lifecycle and events belong to the main thread; the renderer owns the context.
 export class Application
 {
 public:
@@ -29,9 +29,11 @@ public:
 
     [[nodiscard]] std::expected<void, const char*> Initialize();
     void Shutdown();
-    // Requires successful initialization.
+    // Requires successful initialization; called on the main thread.
     ApplicationState ProcessEvents();
     void WaitEvents();
+    [[nodiscard]] std::expected<void, const char*> ActivateContext();
+    void ReleaseContext();
     // Requires successful initialization and this application's current context.
     void Present();
 
