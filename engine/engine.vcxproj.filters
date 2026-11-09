@@ -24,6 +24,12 @@
     <ClCompile Include="core\debug.ixx">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="core\job_system.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="core\job_system.ixx">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="core\engine.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>

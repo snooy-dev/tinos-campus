@@ -6,6 +6,7 @@ import std;
 import Application;
 import Input;
 import Renderer;
+import JobSystem;
 
 // Construct, initialize, run and destroy on the main thread.
 export class Engine
@@ -24,5 +25,6 @@ private:
     Application application_;
     Input input_;
     Renderer renderer_;
+    JobSystem jobs_;
     bool initialized_ = false;
 };

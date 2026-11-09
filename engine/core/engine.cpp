@@ -20,6 +20,7 @@ std::expected<void, const char*> Engine::Initialize()
         return std::unexpected(renderer_result.error());
     }
 
+    jobs_.Initialize();
     initialized_ = true;
     return {};
 }
@@ -52,6 +53,7 @@ void Engine::Run()
         renderer_.SubmitFrame({ state.framebuffer_width, state.framebuffer_height });
     }
 
+    jobs_.Shutdown();
     renderer_.Shutdown();
     application_.Shutdown();
     initialized_ = false;
