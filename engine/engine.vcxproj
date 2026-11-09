@@ -108,6 +108,10 @@
   <ItemGroup>
     <ClInclude Include="core\log.hpp" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="..\contents\shaders\lit.vert" />
+    <None Include="..\contents\shaders\lit.frag" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
