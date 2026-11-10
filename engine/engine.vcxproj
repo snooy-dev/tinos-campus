@@ -65,7 +65,8 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp23</LanguageStandard>
       <ScanSourceForModuleDependencies>true</ScanSourceForModuleDependencies>
-      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/utf-8 /Zc:preprocessor %(AdditionalOptions)</AdditionalOptions>
+      <PreprocessorDefinitions>RTTR_DLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>$(MSBuildProjectDirectory);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions Condition="'$(Platform)'=='Win32'">WIN32;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
@@ -103,6 +104,7 @@
     <ClCompile Include="framework\transform.ixx" />
     <ClCompile Include="framework\framework.ixx" />
     <ClCompile Include="framework\framework.cpp" />
+    <ClCompile Include="framework\reflection.cpp" />
     <ClCompile Include="assets\mesh_resource.ixx" />
     <ClCompile Include="assets\mesh_resource.cpp" />
     <ClCompile Include="renderer\mesh_renderer.cpp" />
@@ -117,6 +119,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="core\log.hpp" />
+    <ClInclude Include="framework\reflection.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -1,4 +1,7 @@
 // Copyright (c) 2026 Yoon-Seong Kim, Seong-Hyeon Cho. All rights reserved.
+module;
+// Include under the RTTR diagnostic guard before the module imports its declarations.
+#include "framework/reflection.hpp"
 module GameFramework;
 import <cassert>;
 

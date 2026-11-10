@@ -1,5 +1,8 @@
 // Copyright (c) 2026 Yoon-Seong Kim, Seong-Hyeon Cho. All rights reserved.
+module;
+#include "framework/reflection.hpp"
 export module GameFramework;
+
 import std;
 import <cassert>;
 export import Transform;
@@ -20,6 +23,10 @@ public:
     GameObject& operator=(GameObject&&) = delete;
     virtual void Update(double) {}
 
+    virtual rttr::type get_type() const;
+    virtual void* get_ptr() { return this; }
+    virtual rttr::detail::derived_info get_derived_info();
+    using base_class_list = rttr::type_list<>;
 private:
     friend class Scene;
     std::uint64_t updated_frame_ = 0;
@@ -41,6 +48,10 @@ public:
     void SetLocalTransform(const Transform& transform);
     [[nodiscard]] glm::mat4 GetWorldMatrix() const;
 
+    rttr::type get_type() const override;
+    void* get_ptr() override { return this; }
+    rttr::detail::derived_info get_derived_info() override;
+    using base_class_list = rttr::type_list<GameObject>;
 private:
     friend class Actor;
     friend class Scene;
@@ -61,11 +72,17 @@ public:
     using ActorComponent::ActorComponent;
     void SetMesh(MeshHandle mesh) { mesh_ = std::move(mesh); }
     void SetColor(glm::vec3 color) { color_ = color; }
+    [[nodiscard]] glm::vec3 GetColor() const { return color_; }
     void CollectRenderItems(std::vector<MeshDraw>& items) const override
     {
         if (auto data = mesh_.Data())
             items.push_back({ std::move(data), GetWorldMatrix(), color_ });
     }
+
+    rttr::type get_type() const override;
+    void* get_ptr() override { return this; }
+    rttr::detail::derived_info get_derived_info() override;
+    using base_class_list = rttr::type_list<ActorComponent>;
 private:
     MeshHandle mesh_;
     glm::vec3 color_{ 1.0f };
@@ -85,6 +102,10 @@ public:
     void SetLocalTransform(const Transform& transform);
     [[nodiscard]] glm::mat4 GetWorldMatrix() const;
 
+    rttr::type get_type() const override;
+    void* get_ptr() override { return this; }
+    rttr::detail::derived_info get_derived_info() override;
+    using base_class_list = rttr::type_list<GameObject>;
 private:
     friend class Scene;
     Scene& scene_;

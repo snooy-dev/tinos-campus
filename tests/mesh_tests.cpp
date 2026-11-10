@@ -10,6 +10,8 @@ import JobSystem;
 import Renderer;
 import GameFramework;
 
+void RunReflectionTests();
+
 namespace
 {
 void Check(bool ok, const char* message)
@@ -90,6 +92,7 @@ struct Target
 
 int main()
 {
+    RunReflectionTests();
     const auto bytes = MeshLoading::Read(fixtures / "multi.glb");
     Check(bytes.has_value(), "Fixture read failed");
     const auto parsed = MeshLoading::Parse(*bytes);
@@ -273,5 +276,5 @@ int main()
     engine.SetViewProjection(glm::mat4{1.0f});
     engine.Run();
     Check(probe->ticks == 8, "Engine scene pipeline failed");
-    std::puts("Mesh parser, async progress, lifetime, depth, transform and reinitialization checks passed.");
+    std::puts("Reflection, mesh parser, async progress, lifetime, depth, transform and reinitialization checks passed.");
 }
