@@ -65,7 +65,9 @@ void Engine::Run()
 
         Update(delta_seconds);
         Simulate(delta_seconds);
-        renderer_.SubmitFrame({ state.framebuffer_width, state.framebuffer_height });
+        scene_.UpdateWorldTransforms();
+        renderer_.SubmitFrame({ state.framebuffer_width, state.framebuffer_height,
+            view_projection_, scene_.CollectRenderItems() });
     }
 
     Shutdown();
@@ -76,9 +78,9 @@ ApplicationState Engine::ProcessInput()
     return application_.ProcessEvents();
 }
 
-void Engine::Update(double)
+void Engine::Update(double delta_seconds)
 {
-    // Game updates will be implemented here.
+    scene_.Update(delta_seconds);
 }
 
 void Engine::Simulate(double)
