@@ -13,7 +13,7 @@ rttr::detail::derived_info ActorComponent::get_derived_info() { return {this, ge
 rttr::type MeshComponent::get_type() const { return rttr::type::get<MeshComponent>(); }
 rttr::detail::derived_info MeshComponent::get_derived_info() { return {this, get_type()}; }
 
-RTTR_REGISTRATION
+RTTR_PLUGIN_REGISTRATION
 {
     using namespace rttr;
     registration::class_<glm::vec3>("Vec3")

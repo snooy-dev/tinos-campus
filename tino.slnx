@@ -4,4 +4,5 @@
     <Platform Name="x86" />
   </Configurations>
   <Project Path="engine/engine.vcxproj" Id="4d4d9278-9baa-420d-8207-bcf2e1a5e759" />
+  <Project Path="game/game.vcxproj" Id="70c47966-fd6a-4588-89f1-3254e90897a6" />
 </Solution>

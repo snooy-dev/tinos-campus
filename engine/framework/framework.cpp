@@ -14,6 +14,22 @@ ActorComponent::ActorComponent(Actor& actor, ActorComponent* parent)
 ActorComponent::~ActorComponent() = default;
 Actor::~Actor() = default;
 
+Scene::~Scene() { Clear(); }
+
+void Scene::Clear()
+{
+    assert(!updating_);
+    if (clearing_)
+        return;
+    clearing_ = true;
+    updates_.clear();
+    for (auto& actor : actors_)
+        actor->Destroy();
+    actors_.clear();
+    frame_ = 0;
+    clearing_ = false;
+}
+
 void ActorComponent::InvalidateTransform()
 {
     if (dirty_)
