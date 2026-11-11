@@ -18,7 +18,7 @@ rttr::detail::derived_info CameraComponent::get_derived_info() { return {this, g
 rttr::type CameraActor::get_type() const { return rttr::type::get<CameraActor>(); }
 rttr::detail::derived_info CameraActor::get_derived_info() { return {this, get_type()}; }
 
-RTTR_REGISTRATION
+RTTR_PLUGIN_REGISTRATION
 {
     using namespace rttr;
     registration::class_<glm::vec3>("Vec3")

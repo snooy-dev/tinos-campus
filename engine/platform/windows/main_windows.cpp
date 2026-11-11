@@ -19,7 +19,7 @@ int GuardedMain()
     Engine engine;
     const auto result = engine.Initialize();
     if (!result)
-        Debug::ReportCrash(result.error());
+        Debug::ReportCrash(result.error().c_str());
 
     engine.Run();
 

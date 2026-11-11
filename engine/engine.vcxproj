@@ -48,13 +48,13 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup>
-    <OutDir>$(SolutionDir)bin\$(Platform)\$(Configuration)\</OutDir>
-    <IntDir>$(SolutionDir)build\$(Platform)\$(Configuration)\</IntDir>
+    <OutDir>$(MSBuildProjectDirectory)\..\bin\$(Platform)\$(Configuration)\</OutDir>
+    <IntDir>$(MSBuildProjectDirectory)\..\build\$(Platform)\$(Configuration)\$(MSBuildProjectName)\</IntDir>
     <TargetName>TinosCampus</TargetName>
   </PropertyGroup>
   <PropertyGroup Label="Vcpkg">
     <VcpkgEnableManifest>true</VcpkgEnableManifest>
-    <VcpkgInstalledDir>$(SolutionDir)third_party\vcpkg_installed\</VcpkgInstalledDir>
+    <VcpkgInstalledDir>$(MSBuildProjectDirectory)\..\third_party\vcpkg_installed\</VcpkgInstalledDir>
   </PropertyGroup>
   <ItemDefinitionGroup>
     <ClCompile>
@@ -63,8 +63,7 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp23</LanguageStandard>
       <ScanSourceForModuleDependencies>true</ScanSourceForModuleDependencies>
-      <AdditionalOptions>/utf-8 /Zc:preprocessor %(AdditionalOptions)</AdditionalOptions>
-      <PreprocessorDefinitions>RTTR_DLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
       <AdditionalIncludeDirectories>$(MSBuildProjectDirectory);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions Condition="'$(Platform)'=='Win32'">WIN32;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
@@ -100,13 +99,12 @@
     <ClCompile Include="core\job_system.cpp" />
     <ClCompile Include="core\job_system.ixx" />
     <ClCompile Include="framework\transform.ixx" />
-    <ClCompile Include="framework\framework.ixx" />
-    <ClCompile Include="framework\framework.cpp" />
-    <ClCompile Include="framework\camera.cpp" />
-    <ClCompile Include="framework\reflection.cpp" />
     <ClCompile Include="assets\mesh_resource.ixx" />
     <ClCompile Include="assets\mesh_resource.cpp" />
     <ClCompile Include="renderer\mesh_renderer.cpp" />
+    <ClCompile Include="game\game_api.ixx" />
+    <ClCompile Include="game\game_module.ixx" />
+    <ClCompile Include="platform\windows\game_module_windows.cpp" />
     <ClCompile Include="core\engine.cpp" />
     <ClCompile Include="core\engine.ixx" />
     <ClCompile Include="renderer\renderer.cpp" />
@@ -118,7 +116,12 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="core\log.hpp" />
-    <ClInclude Include="framework\reflection.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\game\game.vcxproj">
+      <Project>{70C47966-FD6A-4588-89F1-3254E90897A6}</Project>
+      <LinkLibraryDependencies>false</LinkLibraryDependencies>
+    </ProjectReference>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

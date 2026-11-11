@@ -7,33 +7,30 @@ import Application;
 import Input;
 import Renderer;
 import JobSystem;
-export import GameFramework;
+import GameModule;
+import GameApi;
 
 // Construct, initialize, run and destroy on the main thread.
-export class Engine
+export class Engine : private IEngineServices
 {
 public:
     ~Engine();
     // Failure releases acquired resources and permits another initialization attempt.
-    [[nodiscard]] std::expected<void, const char*> Initialize();
+    [[nodiscard]] std::expected<void, std::string> Initialize();
     // Requires successful initialization; returns when the window closes.
     void Run();
-    [[nodiscard]] MeshHandle LoadMeshAsync(std::filesystem::path path)
-    {
-        return renderer_.LoadMeshAsync(std::move(path));
-    }
-    [[nodiscard]] Scene& GetScene() { return scene_; }
 
 private:
     void Shutdown();
     ApplicationState ProcessInput();
-    void Update(double delta_seconds);
+    MeshHandle LoadMeshAsync(std::filesystem::path path) override;
     void Simulate(double delta_seconds);
 
-    Scene scene_;
+    GameModule game_;
     Application application_;
     Input input_;
     JobSystem jobs_;
     Renderer renderer_;
     bool initialized_ = false;
+    bool stopping_ = true;
 };

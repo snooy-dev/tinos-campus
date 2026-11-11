@@ -171,7 +171,7 @@ export class Scene
 {
 public:
     Scene() = default;
-    ~Scene() = default;
+    ~Scene();
     Scene(const Scene&) = delete;
     Scene& operator=(const Scene&) = delete;
     Scene(Scene&&) = delete;
@@ -180,6 +180,8 @@ public:
     template<std::derived_from<Actor> T, class... Args>
     T* SpawnActor(Args&&... args)
     {
+        if (clearing_)
+            return nullptr;
         auto actor = std::make_unique<T>(*this, std::forward<Args>(args)...);
         auto* result = actor.get();
         actors_.push_back(std::move(actor));
@@ -189,6 +191,7 @@ public:
     [[nodiscard]] CameraComponent& GetActiveCamera();
     [[nodiscard]] CameraActor& GetDefaultCameraActor();
     void Update(double delta_seconds);
+    void Clear();
     void UpdateWorldTransforms();
     [[nodiscard]] std::vector<MeshDraw> CollectRenderItems() const;
 
@@ -203,6 +206,7 @@ private:
     std::vector<GameObject*> updates_;
     std::uint64_t frame_ = 0;
     bool updating_ = false;
+    bool clearing_ = false;
 };
 
 template<std::derived_from<ActorComponent> T, class... Args>
