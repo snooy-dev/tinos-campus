@@ -102,6 +102,7 @@
     <ClCompile Include="framework\transform.ixx" />
     <ClCompile Include="framework\framework.ixx" />
     <ClCompile Include="framework\framework.cpp" />
+    <ClCompile Include="framework\camera.cpp" />
     <ClCompile Include="framework\reflection.cpp" />
     <ClCompile Include="assets\mesh_resource.ixx" />
     <ClCompile Include="assets\mesh_resource.cpp" />

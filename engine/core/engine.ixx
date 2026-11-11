@@ -22,7 +22,6 @@ public:
     {
         return renderer_.LoadMeshAsync(std::move(path));
     }
-    void SetViewProjection(const glm::mat4& matrix) { view_projection_ = matrix; }
     [[nodiscard]] Scene& GetScene() { return scene_; }
 
 private:
@@ -31,7 +30,6 @@ private:
     void Update(double delta_seconds);
     void Simulate(double delta_seconds);
 
-    glm::mat4 view_projection_{ 1.0f };
     Scene scene_;
     Application application_;
     Input input_;

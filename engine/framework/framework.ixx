@@ -11,6 +11,8 @@ export import MeshResource;
 export class Scene;
 export class Actor;
 export class ActorComponent;
+export class CameraComponent;
+export class CameraActor;
 
 export class GameObject
 {
@@ -88,6 +90,38 @@ private:
     glm::vec3 color_{ 1.0f };
 };
 
+export enum class ProjectionMode { Perspective, Orthographic };
+
+export class CameraComponent : public ActorComponent
+{
+public:
+    using ActorComponent::ActorComponent;
+    ~CameraComponent() override;
+    [[nodiscard]] glm::mat4 GetViewMatrix() const;
+    [[nodiscard]] glm::mat4 GetProjectionMatrix(float aspect_ratio) const;
+    [[nodiscard]] glm::mat4 GetViewProjectionMatrix(float aspect_ratio) const;
+    [[nodiscard]] std::expected<void, const char*> SetPerspective(
+        float fov_y_radians, float near_plane, float far_plane);
+    [[nodiscard]] std::expected<void, const char*> SetOrthographic(
+        float vertical_size, float near_plane, float far_plane);
+    [[nodiscard]] ProjectionMode GetProjectionMode() const { return projection_mode_; }
+    [[nodiscard]] float GetFieldOfView() const { return fov_y_; }
+    [[nodiscard]] float GetOrthographicSize() const { return orthographic_size_; }
+    [[nodiscard]] float GetNearPlane() const { return near_plane_; }
+    [[nodiscard]] float GetFarPlane() const { return far_plane_; }
+
+    rttr::type get_type() const override;
+    void* get_ptr() override { return this; }
+    rttr::detail::derived_info get_derived_info() override;
+    using base_class_list = rttr::type_list<ActorComponent>;
+private:
+    ProjectionMode projection_mode_ = ProjectionMode::Perspective;
+    float fov_y_ = std::numbers::pi_v<float> / 3.0f;
+    float orthographic_size_ = 10.0f;
+    float near_plane_ = 0.1f;
+    float far_plane_ = 1000.0f;
+};
+
 export class Actor : public GameObject
 {
 public:
@@ -116,6 +150,22 @@ private:
     std::vector<std::unique_ptr<ActorComponent>> children_;
 };
 
+export class CameraActor : public Actor
+{
+public:
+    explicit CameraActor(Scene& scene);
+    // Recreates the default component if it was destroyed; the actor must be live.
+    [[nodiscard]] CameraComponent& GetCameraComponent();
+
+    rttr::type get_type() const override;
+    void* get_ptr() override { return this; }
+    rttr::detail::derived_info get_derived_info() override;
+    using base_class_list = rttr::type_list<Actor>;
+private:
+    friend class CameraComponent;
+    CameraComponent* camera_ = nullptr;
+};
+
 // All scene operations and object access belong to the main thread.
 export class Scene
 {
@@ -135,11 +185,18 @@ public:
         actors_.push_back(std::move(actor));
         return result;
     }
+    [[nodiscard]] std::expected<void, const char*> SetActiveCamera(CameraComponent* camera);
+    [[nodiscard]] CameraComponent& GetActiveCamera();
+    [[nodiscard]] CameraActor& GetDefaultCameraActor();
     void Update(double delta_seconds);
     void UpdateWorldTransforms();
     [[nodiscard]] std::vector<MeshDraw> CollectRenderItems() const;
 
 private:
+    friend class Actor;
+    friend class ActorComponent;
+    CameraComponent* active_camera_ = nullptr;
+    CameraActor* default_camera_actor_ = nullptr;
     void Collect(ActorComponent& component);
     static void RemoveDestroyed(std::vector<std::unique_ptr<ActorComponent>>& children);
     std::vector<std::unique_ptr<Actor>> actors_;

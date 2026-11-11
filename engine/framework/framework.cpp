@@ -74,6 +74,9 @@ void ActorComponent::Destroy()
     if (pending_destroy_)
         return;
     pending_destroy_ = true;
+    auto& scene = actor_.GetScene();
+    if (scene.active_camera_ == this)
+        scene.active_camera_ = nullptr;
     for (auto& child : children_)
         child->Destroy();
 }
@@ -83,6 +86,8 @@ void Actor::Destroy()
     if (pending_destroy_)
         return;
     pending_destroy_ = true;
+    if (scene_.default_camera_actor_ == this)
+        scene_.default_camera_actor_ = nullptr;
     for (auto& child : children_)
         child->Destroy();
 }

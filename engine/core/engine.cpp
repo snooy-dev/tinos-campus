@@ -66,8 +66,13 @@ void Engine::Run()
         Update(delta_seconds);
         Simulate(delta_seconds);
         scene_.UpdateWorldTransforms();
+        if (state.framebuffer_width == 0 || state.framebuffer_height == 0)
+            continue;
+        const float aspect_ratio = static_cast<float>(state.framebuffer_width) /
+            static_cast<float>(state.framebuffer_height);
+        const auto view_projection = scene_.GetActiveCamera().GetViewProjectionMatrix(aspect_ratio);
         renderer_.SubmitFrame({ state.framebuffer_width, state.framebuffer_height,
-            view_projection_, scene_.CollectRenderItems() });
+            view_projection, scene_.CollectRenderItems() });
     }
 
     Shutdown();

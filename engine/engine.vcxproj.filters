@@ -32,6 +32,7 @@
     </ClCompile>
     <ClCompile Include="framework\framework.ixx"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="framework\framework.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="framework\camera.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="framework\reflection.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="framework\transform.ixx"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="assets\mesh_resource.ixx"><Filter>Source Files</Filter></ClCompile>

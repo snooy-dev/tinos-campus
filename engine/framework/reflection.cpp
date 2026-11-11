@@ -13,6 +13,11 @@ rttr::detail::derived_info ActorComponent::get_derived_info() { return {this, ge
 rttr::type MeshComponent::get_type() const { return rttr::type::get<MeshComponent>(); }
 rttr::detail::derived_info MeshComponent::get_derived_info() { return {this, get_type()}; }
 
+rttr::type CameraComponent::get_type() const { return rttr::type::get<CameraComponent>(); }
+rttr::detail::derived_info CameraComponent::get_derived_info() { return {this, get_type()}; }
+rttr::type CameraActor::get_type() const { return rttr::type::get<CameraActor>(); }
+rttr::detail::derived_info CameraActor::get_derived_info() { return {this, get_type()}; }
+
 RTTR_REGISTRATION
 {
     using namespace rttr;
@@ -36,6 +41,17 @@ RTTR_REGISTRATION
         .property("local_transform", &Actor::GetLocalTransform, &Actor::SetLocalTransform);
     registration::class_<ActorComponent>("ActorComponent")
         .property("local_transform", &ActorComponent::GetLocalTransform, &ActorComponent::SetLocalTransform);
+    registration::enumeration<ProjectionMode>("ProjectionMode")
+        (value("Perspective", ProjectionMode::Perspective), value("Orthographic", ProjectionMode::Orthographic));
+    registration::class_<CameraComponent>("CameraComponent")
+        .property_readonly("projection_mode", &CameraComponent::GetProjectionMode)
+        .property_readonly("field_of_view", &CameraComponent::GetFieldOfView)
+        .property_readonly("orthographic_size", &CameraComponent::GetOrthographicSize)
+        .property_readonly("near_plane", &CameraComponent::GetNearPlane)
+        .property_readonly("far_plane", &CameraComponent::GetFarPlane)
+        .method("SetPerspective", &CameraComponent::SetPerspective)
+        .method("SetOrthographic", &CameraComponent::SetOrthographic);
+    registration::class_<CameraActor>("CameraActor");
     registration::class_<MeshComponent>("MeshComponent")
         .property("color", &MeshComponent::GetColor, &MeshComponent::SetColor);
 }
