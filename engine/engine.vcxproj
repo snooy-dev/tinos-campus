@@ -51,8 +51,6 @@
     <OutDir>$(SolutionDir)bin\$(Platform)\$(Configuration)\</OutDir>
     <IntDir>$(SolutionDir)build\$(Platform)\$(Configuration)\</IntDir>
     <TargetName>TinosCampus</TargetName>
-    <IntDir Condition="'$(EngineTestBuild)'=='true'">$(IntDir)mesh-tests/</IntDir>
-    <TargetName Condition="'$(EngineTestBuild)'=='true'">MeshTests</TargetName>
   </PropertyGroup>
   <PropertyGroup Label="Vcpkg">
     <VcpkgEnableManifest>true</VcpkgEnableManifest>
