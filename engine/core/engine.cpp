@@ -75,7 +75,11 @@ void Engine::Run()
             std::chrono::duration<double>(now - *previous_time).count() : 0.0;
         previous_time = now;
 
-        auto frame = game_.Update(delta_seconds);
+        if (state.framebuffer_width == 0 || state.framebuffer_height == 0)
+            continue;
+        const float aspect_ratio = static_cast<float>(state.framebuffer_width) /
+            static_cast<float>(state.framebuffer_height);
+        auto frame = game_.Update(delta_seconds, aspect_ratio);
         Simulate(delta_seconds);
         renderer_.SubmitFrame({ state.framebuffer_width, state.framebuffer_height,
             frame.view_projection, std::move(frame.meshes) });

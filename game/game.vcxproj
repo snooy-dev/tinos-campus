@@ -101,6 +101,7 @@
     <ClCompile Include="..\engine\assets\mesh_resource.ixx" />
     <ClCompile Include="..\engine\framework\framework.ixx" />
     <ClCompile Include="..\engine\framework\framework.cpp" />
+    <ClCompile Include="..\engine\framework\camera.cpp" />
     <ClCompile Include="..\engine\framework\reflection.cpp" />
     <ClCompile Include="game.cpp" />
     <ClInclude Include="..\engine\framework\reflection.hpp" />

@@ -49,10 +49,10 @@ std::expected<void, std::string> GameModule::Initialize(IEngineServices& service
     return {};
 }
 
-GameFrame GameModule::Update(double delta_seconds)
+GameFrame GameModule::Update(double delta_seconds, float aspect_ratio)
 {
     assert(started_ && game_);
-    return game_->Update(delta_seconds);
+    return game_->Update(delta_seconds, aspect_ratio);
 }
 
 void GameModule::Shutdown()

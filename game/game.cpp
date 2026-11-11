@@ -12,17 +12,17 @@ public:
         // Game-specific actors and assets will be created here.
         return {};
     }
-    GameFrame Update(double delta_seconds) override
+    GameFrame Update(double delta_seconds, float aspect_ratio) override
     {
         scene_.Update(delta_seconds);
         scene_.UpdateWorldTransforms();
-        return { view_projection_, scene_.CollectRenderItems() };
+        return { scene_.GetActiveCamera().GetViewProjectionMatrix(aspect_ratio),
+            scene_.CollectRenderItems() };
     }
     void Shutdown() override { scene_.Clear(); }
 
 private:
     Scene scene_;
-    glm::mat4 view_projection_{ 1.0f };
 };
 }
 
