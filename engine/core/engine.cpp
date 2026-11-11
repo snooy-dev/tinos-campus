@@ -11,14 +11,18 @@ Engine::~Engine()
 
 void Engine::Shutdown()
 {
+    stopping_ = true;
+    game_.Shutdown();
     jobs_.Drain();
+    game_.Destroy();
     renderer_.Shutdown();
     jobs_.Shutdown();
     application_.Shutdown();
+    game_.Unload();
     initialized_ = false;
 }
 
-std::expected<void, const char*> Engine::Initialize()
+std::expected<void, std::string> Engine::Initialize()
 {
     if (initialized_)
         return {};
@@ -33,6 +37,14 @@ std::expected<void, const char*> Engine::Initialize()
     {
         Shutdown();
         return std::unexpected(renderer_result.error());
+    }
+
+    stopping_ = false;
+    const auto game_result = game_.Initialize(*this);
+    if (!game_result)
+    {
+        Shutdown();
+        return std::unexpected(game_result.error());
     }
 
     initialized_ = true;
@@ -63,11 +75,10 @@ void Engine::Run()
             std::chrono::duration<double>(now - *previous_time).count() : 0.0;
         previous_time = now;
 
-        Update(delta_seconds);
+        auto frame = game_.Update(delta_seconds);
         Simulate(delta_seconds);
-        scene_.UpdateWorldTransforms();
         renderer_.SubmitFrame({ state.framebuffer_width, state.framebuffer_height,
-            view_projection_, scene_.CollectRenderItems() });
+            frame.view_projection, std::move(frame.meshes) });
     }
 
     Shutdown();
@@ -78,9 +89,11 @@ ApplicationState Engine::ProcessInput()
     return application_.ProcessEvents();
 }
 
-void Engine::Update(double delta_seconds)
+MeshHandle Engine::LoadMeshAsync(std::filesystem::path path)
 {
-    scene_.Update(delta_seconds);
+    if (stopping_)
+        return {};
+    return renderer_.LoadMeshAsync(std::move(path));
 }
 
 void Engine::Simulate(double)

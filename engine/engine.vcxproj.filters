@@ -30,13 +30,19 @@
     <ClCompile Include="core\job_system.ixx">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="framework\framework.ixx"><Filter>Source Files</Filter></ClCompile>
-    <ClCompile Include="framework\framework.cpp"><Filter>Source Files</Filter></ClCompile>
-    <ClCompile Include="framework\reflection.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="framework\transform.ixx"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="assets\mesh_resource.ixx"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="assets\mesh_resource.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="renderer\mesh_renderer.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="game\game_api.ixx">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="game\game_module.ixx">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="platform\windows\game_module_windows.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
     <ClCompile Include="core\engine.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -66,6 +72,5 @@
     <ClInclude Include="core\log.hpp">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="framework\reflection.hpp"><Filter>Header Files</Filter></ClInclude>
   </ItemGroup>
 </Project>
