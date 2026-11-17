@@ -27,7 +27,8 @@
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Label="Configuration">
-    <ConfigurationType>DynamicLibrary</ConfigurationType>
+    <ConfigurationType Condition="'$(LevelTests)' != 'true'">DynamicLibrary</ConfigurationType>
+    <ConfigurationType Condition="'$(LevelTests)' == 'true'">Application</ConfigurationType>
     <PlatformToolset>v145</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
   </PropertyGroup>
@@ -51,6 +52,8 @@
     <OutDir>$(MSBuildProjectDirectory)\..\bin\$(Platform)\$(Configuration)\</OutDir>
     <IntDir>$(MSBuildProjectDirectory)\..\build\$(Platform)\$(Configuration)\$(MSBuildProjectName)\</IntDir>
     <TargetName>game</TargetName>
+    <IntDir Condition="'$(LevelTests)' == 'true'">$(MSBuildProjectDirectory)\..\build\$(Platform)\$(Configuration)\level_tests\</IntDir>
+    <TargetName Condition="'$(LevelTests)' == 'true'">level_tests</TargetName>
   </PropertyGroup>
   <PropertyGroup Label="Vcpkg">
     <VcpkgEnableManifest>true</VcpkgEnableManifest>
@@ -65,13 +68,12 @@
       <LanguageStandard>stdcpp23</LanguageStandard>
       <ScanSourceForModuleDependencies>true</ScanSourceForModuleDependencies>
       <AdditionalOptions>/utf-8 /Zc:preprocessor %(AdditionalOptions)</AdditionalOptions>
-      <PreprocessorDefinitions>RTTR_DLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>$(MSBuildProjectDirectory)\..\engine;$(MSBuildProjectDirectory);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <PreprocessorDefinitions Condition="'$(Platform)'=='Win32'">WIN32;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <ModuleDefinitionFile>$(MSBuildProjectDirectory)\game.def</ModuleDefinitionFile>
+      <ModuleDefinitionFile Condition="'$(LevelTests)' != 'true'">$(MSBuildProjectDirectory)\game.def</ModuleDefinitionFile>
     </Link>
     <Manifest>
       <EnableSegmentHeap>true</EnableSegmentHeap>
@@ -92,7 +94,8 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <SubSystem>Windows</SubSystem>
+      <SubSystem Condition="'$(LevelTests)' != 'true'">Windows</SubSystem>
+      <SubSystem Condition="'$(LevelTests)' == 'true'">Console</SubSystem>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -102,10 +105,17 @@
     <ClCompile Include="..\engine\framework\framework.ixx" />
     <ClCompile Include="..\engine\framework\framework.cpp" />
     <ClCompile Include="..\engine\framework\camera.cpp" />
-    <ClCompile Include="..\engine\framework\reflection.cpp" />
-    <ClCompile Include="game.cpp" />
-    <ClInclude Include="..\engine\framework\reflection.hpp" />
+    <ClCompile Include="..\engine\framework\level.ixx" />
+    <ClCompile Include="..\engine\framework\level.cpp">
+      <AdditionalOptions>/Zc:lambda %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <ClCompile Include="game.cpp" Condition="'$(LevelTests)' != 'true'" />
+    <ClCompile Include="tests\level_tests.cpp" Condition="'$(LevelTests)' == 'true'" />
+    <ClCompile Include="..\engine\assets\mesh_resource.cpp" Condition="'$(LevelTests)' == 'true'" />
     <None Include="game.def" />
+  </ItemGroup>
+  <ItemGroup>
+    <LevelContent Include="content\**\*" />
   </ItemGroup>
 
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
@@ -113,4 +123,9 @@
   </ImportGroup>
 
   <Target Name="RestoreVcpkgBeforeModuleScan" BeforeTargets="SetModuleDependencies" DependsOnTargets="VcpkgInstallManifestDependencies" Condition="'$(DesignTimeBuild)' != 'true' and '$(VcpkgEnableManifest)' == 'true'" />
+  <Target Name="CopyLevelContent" AfterTargets="CopyFilesToOutputDirectory">
+    <Copy SourceFiles="@(LevelContent)" DestinationFiles="@(LevelContent->'$(OutDir)content\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true">
+      <Output TaskParameter="CopiedFiles" ItemName="FileWrites" />
+    </Copy>
+  </Target>
 </Project>

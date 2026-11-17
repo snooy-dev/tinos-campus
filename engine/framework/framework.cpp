@@ -1,7 +1,4 @@
 // Copyright (c) 2026 Yoon-Seong Kim, Seong-Hyeon Cho. All rights reserved.
-module;
-// Include under the RTTR diagnostic guard before the module imports its declarations.
-#include "framework/reflection.hpp"
 module GameFramework;
 import <cassert>;
 
@@ -199,4 +196,26 @@ std::vector<MeshDraw> Scene::CollectRenderItems() const
             pending.push_back(child.get());
     }
     return items;
+}
+
+std::vector<GameObject*> Scene::GetLiveObjects() const
+{
+    std::vector<GameObject*> objects;
+    const auto collect = [&](this const auto& self, ActorComponent& component) -> void
+    {
+        if (component.pending_destroy_)
+            return;
+        objects.push_back(&component);
+        for (const auto& child : component.children_)
+            self(*child);
+    };
+    for (const auto& actor : actors_)
+    {
+        if (actor->pending_destroy_)
+            continue;
+        objects.push_back(actor.get());
+        for (const auto& child : actor->children_)
+            collect(*child);
+    }
+    return objects;
 }

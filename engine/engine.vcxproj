@@ -51,6 +51,8 @@
     <OutDir>$(MSBuildProjectDirectory)\..\bin\$(Platform)\$(Configuration)\</OutDir>
     <IntDir>$(MSBuildProjectDirectory)\..\build\$(Platform)\$(Configuration)\$(MSBuildProjectName)\</IntDir>
     <TargetName>TinosCampus</TargetName>
+    <IntDir Condition="'$(EngineTests)' == 'true'">$(MSBuildProjectDirectory)\..\build\$(Platform)\$(Configuration)\engine_tests\</IntDir>
+    <TargetName Condition="'$(EngineTests)' == 'true'">engine_startup_tests</TargetName>
   </PropertyGroup>
   <PropertyGroup Label="Vcpkg">
     <VcpkgEnableManifest>true</VcpkgEnableManifest>
@@ -89,7 +91,8 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <SubSystem>Windows</SubSystem>
+      <SubSystem Condition="'$(EngineTests)' != 'true'">Windows</SubSystem>
+      <SubSystem Condition="'$(EngineTests)' == 'true'">Console</SubSystem>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -110,7 +113,8 @@
     <ClCompile Include="renderer\renderer.cpp" />
     <ClCompile Include="renderer\renderer.ixx" />
     <ClCompile Include="input\input.ixx" />
-    <ClCompile Include="platform\windows\main_windows.cpp" />
+    <ClCompile Include="platform\windows\main_windows.cpp" Condition="'$(EngineTests)' != 'true'" />
+    <ClCompile Include="tests\engine_startup_tests.cpp" Condition="'$(EngineTests)' == 'true'" />
     <ClCompile Include="application\application.cpp" />
     <ClCompile Include="application\application.ixx" />
   </ItemGroup>
