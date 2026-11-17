@@ -1,28 +1,42 @@
 import std;
 import GameApi;
-import GameFramework;
+import Level;
 
 namespace
 {
 class Game final : public IGame
 {
 public:
-    std::expected<void, const char*> Initialize(IEngineServices&) override
+    std::expected<void, const char*> Initialize(IEngineServices& services) override
     {
-        // Game-specific actors and assets will be created here.
+        const auto content = Level::ExecutableContentRoot();
+        if (!content)
+        {
+            error_ = content.error();
+            return std::unexpected(error_.c_str());
+        }
+        level_.emplace(*content);
+        const auto opened = level_->Open(*content / L"start.json", services);
+        if (!opened)
+        {
+            error_ = "content/start.json: " + opened.error();
+            return std::unexpected(error_.c_str());
+        }
         return {};
     }
     GameFrame Update(double delta_seconds, float aspect_ratio) override
     {
-        scene_.Update(delta_seconds);
-        scene_.UpdateWorldTransforms();
-        return { scene_.GetActiveCamera().GetViewProjectionMatrix(aspect_ratio),
-            scene_.CollectRenderItems() };
+        auto& scene = level_->GetScene();
+        scene.Update(delta_seconds);
+        scene.UpdateWorldTransforms();
+        return { scene.GetActiveCamera().GetViewProjectionMatrix(aspect_ratio),
+            scene.CollectRenderItems() };
     }
-    void Shutdown() override { scene_.Clear(); }
+    void Shutdown() override { level_.reset(); }
 
 private:
-    Scene scene_;
+    std::optional<Level> level_;
+    std::string error_;
 };
 }
 

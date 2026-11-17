@@ -6,7 +6,7 @@
     "glew",
     "glm",
     "cgltf",
-    "rttr"
+    "glaze"
   ],
   "builtin-baseline": "d4c0a46cb8f63e5c9fa007d13baf1cb3e43bf7e3"
 }

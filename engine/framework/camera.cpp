@@ -1,6 +1,4 @@
 // Copyright (c) 2026 Yoon-Seong Kim, Seong-Hyeon Cho. All rights reserved.
-module;
-#include "framework/reflection.hpp"
 module GameFramework;
 
 import <cassert>;
@@ -13,6 +11,35 @@ glm::quat NormalizeRotation(const glm::quat& rotation)
     const float length_squared = glm::dot(rotation, rotation);
     assert(std::isfinite(length_squared) && length_squared > 0.0f);
     return glm::normalize(rotation);
+}
+
+glm::dmat4 Projection(ProjectionMode mode, double size, double near_plane, double far_plane,
+    double aspect)
+{
+    if (mode == ProjectionMode::Perspective)
+        return glm::perspectiveRH_NO(size, aspect, near_plane, far_plane);
+    const double half_height = size * 0.5;
+    const double half_width = half_height * aspect;
+    return glm::orthoRH_NO(-half_width, half_width, -half_height, half_height, near_plane, far_plane);
+}
+
+bool FitsProjection(ProjectionMode mode, float size, float near_plane, float far_plane)
+{
+    // Framebuffer dimensions are positive ints. Only the horizontal coefficient depends on aspect.
+    constexpr double largest_aspect = std::numeric_limits<int>::max();
+    for (const double aspect : { 1.0 / largest_aspect, largest_aspect })
+    {
+        const auto matrix = Projection(mode, size, near_plane, far_plane, aspect);
+        for (int c = 0; c < 4; ++c)
+            for (int r = 0; r < 4; ++r)
+                if (!std::isfinite(matrix[c][r]) ||
+                    std::abs(matrix[c][r]) > std::numeric_limits<float>::max())
+                    return false;
+        if (static_cast<float>(matrix[0][0]) == 0.0f ||
+            static_cast<float>(matrix[1][1]) == 0.0f)
+            return false;
+    }
+    return true;
 }
 }
 
@@ -38,13 +65,8 @@ glm::mat4 CameraComponent::GetViewMatrix() const
 glm::mat4 CameraComponent::GetProjectionMatrix(float aspect_ratio) const
 {
     assert(std::isfinite(aspect_ratio) && aspect_ratio > 0.0f);
-    if (projection_mode_ == ProjectionMode::Perspective)
-        return glm::perspectiveRH_NO(fov_y_, aspect_ratio, near_plane_, far_plane_);
-
-    const float half_height = orthographic_size_ * 0.5f;
-    const float half_width = half_height * aspect_ratio;
-    return glm::orthoRH_NO(-half_width, half_width, -half_height, half_height,
-        near_plane_, far_plane_);
+    const auto size = projection_mode_ == ProjectionMode::Perspective ? fov_y_ : orthographic_size_;
+    return glm::mat4(Projection(projection_mode_, size, near_plane_, far_plane_, aspect_ratio));
 }
 
 glm::mat4 CameraComponent::GetViewProjectionMatrix(float aspect_ratio) const
@@ -58,7 +80,8 @@ std::expected<void, const char*> CameraComponent::SetPerspective(
     if (!std::isfinite(fov_y_radians) || fov_y_radians <= 0.0f ||
         fov_y_radians >= std::numbers::pi_v<float> ||
         !std::isfinite(near_plane) || !std::isfinite(far_plane) ||
-        near_plane <= 0.0f || far_plane <= near_plane)
+        near_plane <= 0.0f || far_plane <= near_plane ||
+        !FitsProjection(ProjectionMode::Perspective, fov_y_radians, near_plane, far_plane))
         return std::unexpected("Invalid perspective projection parameters.");
 
     projection_mode_ = ProjectionMode::Perspective;
@@ -73,7 +96,8 @@ std::expected<void, const char*> CameraComponent::SetOrthographic(
 {
     if (!std::isfinite(vertical_size) || vertical_size <= 0.0f ||
         !std::isfinite(near_plane) || !std::isfinite(far_plane) ||
-        near_plane <= 0.0f || far_plane <= near_plane)
+        near_plane <= 0.0f || far_plane <= near_plane ||
+        !FitsProjection(ProjectionMode::Orthographic, vertical_size, near_plane, far_plane))
         return std::unexpected("Invalid orthographic projection parameters.");
 
     projection_mode_ = ProjectionMode::Orthographic;

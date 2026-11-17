@@ -1,6 +1,4 @@
 // Copyright (c) 2026 Yoon-Seong Kim, Seong-Hyeon Cho. All rights reserved.
-module;
-#include "framework/reflection.hpp"
 export module GameFramework;
 
 import std;
@@ -24,14 +22,16 @@ public:
     GameObject(GameObject&&) = delete;
     GameObject& operator=(GameObject&&) = delete;
     virtual void Update(double) {}
-
-    virtual rttr::type get_type() const;
-    virtual void* get_ptr() { return this; }
-    virtual rttr::detail::derived_info get_derived_info();
-    using base_class_list = rttr::type_list<>;
+    [[nodiscard]] const std::string& GetLevelId() const { return level_id_; }
+    void SetLevelId(std::string id)
+    {
+        assert(level_id_.empty() && !id.empty());
+        level_id_ = std::move(id);
+    }
 private:
     friend class Scene;
     std::uint64_t updated_frame_ = 0;
+    std::string level_id_;
 };
 
 export class ActorComponent : public GameObject
@@ -49,11 +49,6 @@ public:
     [[nodiscard]] const Transform& GetLocalTransform() const { return transform_; }
     void SetLocalTransform(const Transform& transform);
     [[nodiscard]] glm::mat4 GetWorldMatrix() const;
-
-    rttr::type get_type() const override;
-    void* get_ptr() override { return this; }
-    rttr::detail::derived_info get_derived_info() override;
-    using base_class_list = rttr::type_list<GameObject>;
 private:
     friend class Actor;
     friend class Scene;
@@ -72,7 +67,12 @@ export class MeshComponent : public ActorComponent
 {
 public:
     using ActorComponent::ActorComponent;
-    void SetMesh(MeshHandle mesh) { mesh_ = std::move(mesh); }
+    void SetMesh(MeshHandle mesh, std::string asset = {})
+    {
+        mesh_ = std::move(mesh);
+        asset_ = std::move(asset);
+    }
+    [[nodiscard]] const std::string& GetAsset() const { return asset_; }
     void SetColor(glm::vec3 color) { color_ = color; }
     [[nodiscard]] glm::vec3 GetColor() const { return color_; }
     void CollectRenderItems(std::vector<MeshDraw>& items) const override
@@ -80,13 +80,9 @@ public:
         if (auto data = mesh_.Data())
             items.push_back({ std::move(data), GetWorldMatrix(), color_ });
     }
-
-    rttr::type get_type() const override;
-    void* get_ptr() override { return this; }
-    rttr::detail::derived_info get_derived_info() override;
-    using base_class_list = rttr::type_list<ActorComponent>;
 private:
     MeshHandle mesh_;
+    std::string asset_;
     glm::vec3 color_{ 1.0f };
 };
 
@@ -109,11 +105,6 @@ public:
     [[nodiscard]] float GetOrthographicSize() const { return orthographic_size_; }
     [[nodiscard]] float GetNearPlane() const { return near_plane_; }
     [[nodiscard]] float GetFarPlane() const { return far_plane_; }
-
-    rttr::type get_type() const override;
-    void* get_ptr() override { return this; }
-    rttr::detail::derived_info get_derived_info() override;
-    using base_class_list = rttr::type_list<ActorComponent>;
 private:
     ProjectionMode projection_mode_ = ProjectionMode::Perspective;
     float fov_y_ = std::numbers::pi_v<float> / 3.0f;
@@ -135,11 +126,6 @@ public:
     [[nodiscard]] const Transform& GetLocalTransform() const { return transform_; }
     void SetLocalTransform(const Transform& transform);
     [[nodiscard]] glm::mat4 GetWorldMatrix() const;
-
-    rttr::type get_type() const override;
-    void* get_ptr() override { return this; }
-    rttr::detail::derived_info get_derived_info() override;
-    using base_class_list = rttr::type_list<GameObject>;
 private:
     friend class Scene;
     Scene& scene_;
@@ -156,11 +142,7 @@ public:
     explicit CameraActor(Scene& scene);
     // Recreates the default component if it was destroyed; the actor must be live.
     [[nodiscard]] CameraComponent& GetCameraComponent();
-
-    rttr::type get_type() const override;
-    void* get_ptr() override { return this; }
-    rttr::detail::derived_info get_derived_info() override;
-    using base_class_list = rttr::type_list<Actor>;
+    [[nodiscard]] const CameraComponent* FindPrimaryCamera() const { return camera_; }
 private:
     friend class CameraComponent;
     CameraComponent* camera_ = nullptr;
@@ -189,11 +171,13 @@ public:
     }
     [[nodiscard]] std::expected<void, const char*> SetActiveCamera(CameraComponent* camera);
     [[nodiscard]] CameraComponent& GetActiveCamera();
+    [[nodiscard]] const CameraComponent* FindActiveCamera() const { return active_camera_; }
     [[nodiscard]] CameraActor& GetDefaultCameraActor();
     void Update(double delta_seconds);
     void Clear();
     void UpdateWorldTransforms();
     [[nodiscard]] std::vector<MeshDraw> CollectRenderItems() const;
+    [[nodiscard]] std::vector<GameObject*> GetLiveObjects() const;
 
 private:
     friend class Actor;
