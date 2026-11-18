@@ -99,16 +99,6 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\engine\game\game_api.ixx" />
-    <ClCompile Include="..\engine\framework\transform.ixx" />
-    <ClCompile Include="..\engine\assets\mesh_resource.ixx" />
-    <ClCompile Include="..\engine\framework\framework.ixx" />
-    <ClCompile Include="..\engine\framework\framework.cpp" />
-    <ClCompile Include="..\engine\framework\camera.cpp" />
-    <ClCompile Include="..\engine\framework\level.ixx" />
-    <ClCompile Include="..\engine\framework\level.cpp">
-      <AdditionalOptions>/Zc:lambda %(AdditionalOptions)</AdditionalOptions>
-    </ClCompile>
     <ClCompile Include="game.cpp" Condition="'$(LevelTests)' != 'true'" />
     <ClCompile Include="tests\level_tests.cpp" Condition="'$(LevelTests)' == 'true'" />
     <ClCompile Include="..\engine\assets\mesh_resource.cpp" Condition="'$(LevelTests)' == 'true'" />
@@ -118,6 +108,8 @@
     <LevelContent Include="content\**\*" />
   </ItemGroup>
 
+  <Import Project="..\engine\types.props" />
+  <Import Project="..\engine\scene.props" />
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

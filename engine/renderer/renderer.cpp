@@ -117,7 +117,9 @@ void Renderer::Render(const RenderFrame& frame)
     if (frame.framebuffer_width == 0 || frame.framebuffer_height == 0)
         return;
 
-    glViewport(0, 0, frame.framebuffer_width, frame.framebuffer_height);
+    const auto area = frame.viewport.value_or(RenderViewport{
+        0, 0, frame.framebuffer_width, frame.framebuffer_height });
+    glViewport(area.x, area.y, area.width, area.height);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glUseProgram(program_);
     for (const auto& draw : frame.meshes)
@@ -144,5 +146,7 @@ void Renderer::Render(const RenderFrame& frame)
         }
     }
     glBindVertexArray(0);
+    if (frame.draw_overlay)
+        frame.draw_overlay();
     application_->Present();
 }

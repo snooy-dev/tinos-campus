@@ -1,0 +1,11 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="$(MSBuildThisFileDirectory)framework\framework.ixx" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)framework\framework.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)framework\camera.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)framework\level.ixx" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)framework\level.cpp">
+      <AdditionalOptions>/Zc:lambda %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+  </ItemGroup>
+</Project>

@@ -29,6 +29,7 @@ public:
 
     [[nodiscard]] std::expected<void, const char*> Initialize();
     void Shutdown();
+    [[nodiscard]] GLFWwindow* Window() const { return window_; }
     // Requires successful initialization; called on the main thread.
     ApplicationState ProcessEvents();
     void WaitEvents();

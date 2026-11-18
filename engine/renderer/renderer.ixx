@@ -7,12 +7,16 @@ import Application;
 import JobSystem;
 export import MeshResource;
 
+export struct RenderViewport { int x, y, width, height; };
+
 export struct RenderFrame
 {
     int framebuffer_width = 0;
     int framebuffer_height = 0;
     glm::mat4 view_projection{ 1.0f };
     std::vector<MeshDraw> meshes;
+    std::optional<RenderViewport> viewport;
+    std::function<void()> draw_overlay;
 };
 
 // Lifecycle and frame submission belong to the main thread; Application and JobSystem must outlive Renderer.

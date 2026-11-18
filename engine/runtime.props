@@ -1,0 +1,15 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="$(MSBuildThisFileDirectory)platform\windows\debug_windows.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)core\debug.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)core\debug.ixx" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)core\job_system.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)core\job_system.ixx" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)assets\mesh_resource.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)renderer\mesh_renderer.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)renderer\renderer.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)renderer\renderer.ixx" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)application\application.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)application\application.ixx" />
+  </ItemGroup>
+</Project>
