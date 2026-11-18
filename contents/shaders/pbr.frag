@@ -17,7 +17,7 @@ uniform sampler2D uBaseTexture;
 uniform sampler2D uMetallicRoughnessTexture;
 uniform vec3 uDirectionToLight = vec3(0.4, 1.0, 0.6);
 uniform bool uShadowsEnabled = false;
-uniform sampler2D uShadowMap;
+uniform sampler2DShadow uShadowMap;
 uniform vec3 uSkyAmbient = vec3(0.16);
 uniform vec3 uGroundAmbient = vec3(0.16);
 
@@ -49,8 +49,8 @@ float shadowVisibility(float noL)
     for (int y = -1; y <= 1; ++y)
         for (int x = -1; x <= 1; ++x)
         {
-            float depth = texture(uShadowMap, projected.xy + vec2(x, y) * texel).r;
-            visibility += projected.z - bias <= depth ? 1.0 : 0.0;
+            visibility += texture(uShadowMap,
+                vec3(projected.xy + vec2(x, y) * texel, projected.z - bias));
         }
     return visibility / 9.0;
 }
@@ -78,6 +78,8 @@ void main()
     vec3 view = unitVector(uCamera.xyz - uCamera.w * vWorldPosition);
     vec3 halfway = unitVector(light + view);
     float noL = max(dot(normal, light), 0.0);
+    float halfLambert = clamp(dot(normal, light) * 0.5 + 0.5, 0.0, 1.0);
+    halfLambert *= halfLambert;
     float noV = max(dot(normal, view), 0.0);
     float noH = clamp(dot(normal, halfway), 0.0, 1.0);
     float voH = clamp(dot(view, halfway), 0.0, 1.0);
@@ -96,7 +98,7 @@ void main()
 
     float hemisphereWeight = clamp(normal.y * 0.5 + 0.5, 0.0, 1.0);
     vec3 ambient = mix(uGroundAmbient, uSkyAmbient, hemisphereWeight);
-    vec3 color = (diffuse + specular) * (2.6 * noL * shadowVisibility(noL))
+    vec3 color = (diffuse * halfLambert + specular * noL) * (2.6 * shadowVisibility(noL))
         + ambient * mix(base.rgb, f0, metallic);
     fragColor = vec4(toSrgb(clamp(color, 0.0, 1.0)), 1.0);
 }

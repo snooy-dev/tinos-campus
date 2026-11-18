@@ -119,6 +119,8 @@ void Renderer::RenderShadowMap(const RenderFrame& frame)
     glEnable(GL_DEPTH_TEST);
     glDepthMask(GL_TRUE);
     glClear(GL_DEPTH_BUFFER_BIT);
+    glEnable(GL_POLYGON_OFFSET_FILL);
+    glPolygonOffset(1.1f, 2.0f);
     glUseProgram(shadow_program_);
     glUniformMatrix4fv(shadow_uniforms_.light_view_projection, 1, GL_FALSE,
         &frame.light_view_projection[0][0]);
@@ -146,6 +148,7 @@ void Renderer::RenderShadowMap(const RenderFrame& frame)
         }
     }
     glBindVertexArray(0);
+    glDisable(GL_POLYGON_OFFSET_FILL);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
