@@ -20,6 +20,9 @@ uniform bool uShadowsEnabled = false;
 uniform sampler2DShadow uShadowMap;
 uniform vec3 uSkyAmbient = vec3(0.16);
 uniform vec3 uGroundAmbient = vec3(0.16);
+uniform vec3 uRimColor = vec3(0.55, 0.7, 1.0);
+uniform float uRimStrength = 0.25;
+uniform float uRimPower = 3.0;
 
 out vec4 fragColor;
 const float pi = 3.14159265;
@@ -100,5 +103,7 @@ void main()
     vec3 ambient = mix(uGroundAmbient, uSkyAmbient, hemisphereWeight);
     vec3 color = (diffuse * halfLambert + specular * noL) * (2.6 * shadowVisibility(noL))
         + ambient * mix(base.rgb, f0, metallic);
+    float rim = pow(1.0 - clamp(noV, 0.0, 1.0), max(uRimPower, 1.0));
+    color += max(uRimColor, vec3(0.0)) * max(uRimStrength, 0.0) * rim;
     fragColor = vec4(toSrgb(clamp(color, 0.0, 1.0)), 1.0);
 }
