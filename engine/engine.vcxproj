@@ -96,27 +96,13 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="platform\windows\debug_windows.cpp" />
-    <ClCompile Include="core\debug.cpp" />
-    <ClCompile Include="core\debug.ixx" />
-    <ClCompile Include="core\job_system.cpp" />
-    <ClCompile Include="core\job_system.ixx" />
-    <ClCompile Include="framework\transform.ixx" />
-    <ClCompile Include="assets\mesh_resource.ixx" />
-    <ClCompile Include="assets\mesh_resource.cpp" />
-    <ClCompile Include="renderer\mesh_renderer.cpp" />
-    <ClCompile Include="game\game_api.ixx" />
     <ClCompile Include="game\game_module.ixx" />
     <ClCompile Include="platform\windows\game_module_windows.cpp" />
     <ClCompile Include="core\engine.cpp" />
     <ClCompile Include="core\engine.ixx" />
-    <ClCompile Include="renderer\renderer.cpp" />
-    <ClCompile Include="renderer\renderer.ixx" />
     <ClCompile Include="input\input.ixx" />
     <ClCompile Include="platform\windows\main_windows.cpp" Condition="'$(EngineTests)' != 'true'" />
     <ClCompile Include="tests\engine_startup_tests.cpp" Condition="'$(EngineTests)' == 'true'" />
-    <ClCompile Include="application\application.cpp" />
-    <ClCompile Include="application\application.ixx" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="core\log.hpp" />
@@ -127,6 +113,8 @@
       <LinkLibraryDependencies>false</LinkLibraryDependencies>
     </ProjectReference>
   </ItemGroup>
+  <Import Project="..\engine\types.props" />
+  <Import Project="..\engine\runtime.props" />
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
