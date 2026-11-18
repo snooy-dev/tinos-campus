@@ -32,6 +32,8 @@ public:
         frame.light_view_projection = glm::ortho(-20.0f, 20.0f, -20.0f, 20.0f, 1.0f, 80.0f)
             * light_view;
         frame.shadows_enabled = true;
+        frame.sky_ambient = { 0.16f, 0.23f, 0.32f };
+        frame.ground_ambient = { 0.12f, 0.17f, 0.085f };
         return frame;
     }
     void Shutdown() override { scene_.Clear(); }

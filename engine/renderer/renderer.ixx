@@ -17,6 +17,8 @@ export struct RenderFrame
     glm::vec3 direction_to_light{ 0.4f, 1.0f, 0.6f };
     glm::mat4 light_view_projection{ 1.0f };
     bool shadows_enabled = false;
+    glm::vec3 sky_ambient{ 0.16f };
+    glm::vec3 ground_ambient{ 0.16f };
 };
 
 // Lifecycle and frame submission belong to the main thread; Application and JobSystem must outlive Renderer.
@@ -69,6 +71,7 @@ private:
         int view_projection, model, normal_matrix, camera, base_color;
         int metallic, roughness, alpha_cutoff, has_normals, has_base_texture, has_metallic_roughness_texture;
         int light_view_projection, direction_to_light, shadows_enabled;
+        int sky_ambient, ground_ambient;
     } uniforms_{};
 
     const std::thread::id owner_thread_{ std::this_thread::get_id() };

@@ -168,6 +168,8 @@ void Renderer::Render(const RenderFrame& frame)
     glUniform3fv(uniforms_.direction_to_light, 1, &frame.direction_to_light[0]);
     glUniformMatrix4fv(uniforms_.light_view_projection, 1, GL_FALSE, &frame.light_view_projection[0][0]);
     glUniform1i(uniforms_.shadows_enabled, frame.shadows_enabled);
+    glUniform3fv(uniforms_.sky_ambient, 1, &frame.sky_ambient[0]);
+    glUniform3fv(uniforms_.ground_ambient, 1, &frame.ground_ambient[0]);
     for (const auto& draw : frame.meshes)
     {
         const auto resource = Upload(draw.data);

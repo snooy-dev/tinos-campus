@@ -141,7 +141,8 @@ std::expected<void, const char*> Renderer::InitializeMeshRendering()
         uniform("uCamera"), uniform("uBaseColor"), uniform("uMetallic"), uniform("uRoughness"),
         uniform("uAlphaCutoff"), uniform("uHasNormals"), uniform("uHasBaseTexture"),
         uniform("uHasMetallicRoughnessTexture"), uniform("uLightViewProjection"),
-        uniform("uDirectionToLight"), uniform("uShadowsEnabled") };
+        uniform("uDirectionToLight"), uniform("uShadowsEnabled"),
+        uniform("uSkyAmbient"), uniform("uGroundAmbient") };
     glUseProgram(program_);
     glUniform1i(uniform("uBaseTexture"), 0);
     glUniform1i(uniform("uMetallicRoughnessTexture"), 1);

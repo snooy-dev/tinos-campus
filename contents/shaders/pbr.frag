@@ -18,6 +18,8 @@ uniform sampler2D uMetallicRoughnessTexture;
 uniform vec3 uDirectionToLight = vec3(0.4, 1.0, 0.6);
 uniform bool uShadowsEnabled = false;
 uniform sampler2D uShadowMap;
+uniform vec3 uSkyAmbient = vec3(0.16);
+uniform vec3 uGroundAmbient = vec3(0.16);
 
 out vec4 fragColor;
 const float pi = 3.14159265;
@@ -92,7 +94,9 @@ void main()
     vec3 diffuse = (1.0 - fresnel) * (1.0 - metallic) * base.rgb / pi;
     vec3 specular = distribution * visibility * fresnel;
 
+    float hemisphereWeight = clamp(normal.y * 0.5 + 0.5, 0.0, 1.0);
+    vec3 ambient = mix(uGroundAmbient, uSkyAmbient, hemisphereWeight);
     vec3 color = (diffuse + specular) * (2.6 * noL * shadowVisibility(noL))
-        + 0.16 * mix(base.rgb, f0, metallic);
+        + ambient * mix(base.rgb, f0, metallic);
     fragColor = vec4(toSrgb(clamp(color, 0.0, 1.0)), 1.0);
 }
