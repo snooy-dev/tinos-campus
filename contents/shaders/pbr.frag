@@ -3,6 +3,7 @@
 in vec3 vWorldPosition;
 in vec3 vWorldNormal;
 in vec2 vTexCoord;
+in vec4 vLightPosition;
 
 uniform vec4 uCamera;
 uniform vec4 uBaseColor;
@@ -14,6 +15,9 @@ uniform bool uHasBaseTexture;
 uniform bool uHasMetallicRoughnessTexture;
 uniform sampler2D uBaseTexture;
 uniform sampler2D uMetallicRoughnessTexture;
+uniform vec3 uDirectionToLight = vec3(0.4, 1.0, 0.6);
+uniform bool uShadowsEnabled = false;
+uniform sampler2D uShadowMap;
 
 out vec4 fragColor;
 const float pi = 3.14159265;
@@ -27,6 +31,26 @@ vec3 toSrgb(vec3 linear)
 {
     return mix(12.92 * linear, 1.055 * pow(linear, vec3(1.0 / 2.4)) - 0.055,
         greaterThan(linear, vec3(0.0031308)));
+}
+
+float shadowVisibility(float noL)
+{
+    if (!uShadowsEnabled || vLightPosition.w <= 0.0)
+        return 1.0;
+    vec3 projected = vLightPosition.xyz / vLightPosition.w * 0.5 + 0.5;
+    if (any(lessThan(projected, vec3(0.0))) || any(greaterThan(projected, vec3(1.0))))
+        return 1.0;
+
+    float bias = max(0.006 * (1.0 - noL), 0.0007);
+    vec2 texel = 1.0 / vec2(textureSize(uShadowMap, 0));
+    float visibility = 0.0;
+    for (int y = -1; y <= 1; ++y)
+        for (int x = -1; x <= 1; ++x)
+        {
+            float depth = texture(uShadowMap, projected.xy + vec2(x, y) * texel).r;
+            visibility += projected.z - bias <= depth ? 1.0 : 0.0;
+        }
+    return visibility / 9.0;
 }
 
 void main()
@@ -48,7 +72,7 @@ void main()
 
     float metallic = clamp(metalRough.x, 0.0, 1.0);
     float roughness = clamp(metalRough.y, 0.06, 1.0);
-    vec3 light = normalize(vec3(0.4, 1.0, 0.6));
+    vec3 light = unitVector(uDirectionToLight);
     vec3 view = unitVector(uCamera.xyz - uCamera.w * vWorldPosition);
     vec3 halfway = unitVector(light + view);
     float noL = max(dot(normal, light), 0.0);
@@ -68,6 +92,7 @@ void main()
     vec3 diffuse = (1.0 - fresnel) * (1.0 - metallic) * base.rgb / pi;
     vec3 specular = distribution * visibility * fresnel;
 
-    vec3 color = (diffuse + specular) * (2.6 * noL) + 0.16 * mix(base.rgb, f0, metallic);
+    vec3 color = (diffuse + specular) * (2.6 * noL * shadowVisibility(noL))
+        + 0.16 * mix(base.rgb, f0, metallic);
     fragColor = vec4(toSrgb(clamp(color, 0.0, 1.0)), 1.0);
 }

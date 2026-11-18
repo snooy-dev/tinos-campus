@@ -1,6 +1,7 @@
 import std;
 import GameApi;
 import GameFramework;
+import <glm/gtc/matrix_transform.hpp>;
 
 namespace
 {
@@ -16,8 +17,22 @@ public:
     {
         scene_.Update(delta_seconds);
         scene_.UpdateWorldTransforms();
-        return { scene_.GetActiveCamera().GetViewProjectionMatrix(aspect_ratio),
-            scene_.CollectRenderItems() };
+        const auto& camera = scene_.GetActiveCamera();
+        const auto view = camera.GetViewMatrix();
+        const auto eye = camera.GetProjectionMode() == ProjectionMode::Perspective
+            ? glm::vec4(glm::vec3(camera.GetWorldMatrix()[3]), 1.0f)
+            : glm::vec4(view[0][2], view[1][2], view[2][2], 0.0f);
+        GameFrame frame{ camera.GetProjectionMatrix(aspect_ratio) * view, scene_.CollectRenderItems(), eye };
+        frame.direction_to_light = glm::normalize(glm::vec3(0.4f, 1.0f, 0.6f));
+        const glm::vec3 shadow_center(0.0f);
+        const auto up = std::abs(frame.direction_to_light.y) > 0.99f
+            ? glm::vec3(0.0f, 0.0f, 1.0f) : glm::vec3(0.0f, 1.0f, 0.0f);
+        const auto light_view = glm::lookAt(shadow_center + frame.direction_to_light * 40.0f,
+            shadow_center, up);
+        frame.light_view_projection = glm::ortho(-20.0f, 20.0f, -20.0f, 20.0f, 1.0f, 80.0f)
+            * light_view;
+        frame.shadows_enabled = true;
+        return frame;
     }
     void Shutdown() override { scene_.Clear(); }
 

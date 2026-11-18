@@ -73,4 +73,18 @@
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>
+  <ItemGroup>
+    <None Include="..\contents\shaders\pbr.vert">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="..\contents\shaders\pbr.frag">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="..\contents\shaders\shadow.vert">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="..\contents\shaders\shadow.frag">
+      <Filter>Resource Files</Filter>
+    </None>
+  </ItemGroup>
 </Project>

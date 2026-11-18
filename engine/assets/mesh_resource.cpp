@@ -1,11 +1,89 @@
 // Copyright (c) 2026 Yoon-Seong Kim, Seong-Hyeon Cho. All rights reserved.
 module;
+#define WIN32_LEAN_AND_MEAN
+#define NOMINMAX
+#include <Windows.h>
+#include <wincodec.h>
+#include <wrl/client.h>
 #define CGLTF_IMPLEMENTATION
 #pragma warning(push)
 #pragma warning(disable: 4996)
 #include <cgltf.h>
 #pragma warning(pop)
 module MeshResource;
+
+namespace
+{
+struct ComApartment
+{
+    HRESULT result = CoInitializeEx(nullptr, COINIT_MULTITHREADED);
+    ~ComApartment() { if (SUCCEEDED(result)) CoUninitialize(); }
+};
+
+std::expected<MeshTexture, std::string> DecodeTexture(const cgltf_texture& texture, bool srgb)
+{
+    using Microsoft::WRL::ComPtr;
+    const auto* image = texture.image;
+    if (!image || !image->buffer_view || !image->mime_type ||
+        (std::string_view(image->mime_type) != "image/png" &&
+         std::string_view(image->mime_type) != "image/jpeg"))
+        return std::unexpected("GLB textures must be embedded PNG or JPEG images.");
+    const auto& view = *image->buffer_view;
+    if (!view.size || view.size > std::numeric_limits<DWORD>::max())
+        return std::unexpected("Invalid GLB image size.");
+
+    const ComApartment com;
+    ComPtr<IWICImagingFactory> factory;
+    ComPtr<IWICStream> stream;
+    ComPtr<IWICBitmapDecoder> decoder;
+    ComPtr<IWICBitmapFrameDecode> frame;
+    ComPtr<IWICFormatConverter> rgba;
+    if ((FAILED(com.result) && com.result != RPC_E_CHANGED_MODE) ||
+        FAILED(CoCreateInstance(CLSID_WICImagingFactory, nullptr, CLSCTX_INPROC_SERVER,
+            IID_PPV_ARGS(factory.GetAddressOf()))) ||
+        FAILED(factory->CreateStream(stream.GetAddressOf())) ||
+        FAILED(stream->InitializeFromMemory(static_cast<BYTE*>(view.buffer->data) + view.offset,
+            static_cast<DWORD>(view.size))) ||
+        FAILED(factory->CreateDecoderFromStream(stream.Get(), nullptr, WICDecodeMetadataCacheOnLoad,
+            decoder.GetAddressOf())) ||
+        FAILED(decoder->GetFrame(0, frame.GetAddressOf())) ||
+        FAILED(factory->CreateFormatConverter(rgba.GetAddressOf())) ||
+        FAILED(rgba->Initialize(frame.Get(), GUID_WICPixelFormat32bppRGBA, WICBitmapDitherTypeNone,
+            nullptr, 0, WICBitmapPaletteTypeCustom)))
+        return std::unexpected("Cannot decode embedded GLB texture.");
+
+    UINT width = 0, height = 0;
+    if (FAILED(rgba->GetSize(&width, &height)) || !width || !height || width > 8192 || height > 8192)
+        return std::unexpected("GLB texture dimensions must be within 1–8192 pixels.");
+    MeshTexture result;
+    result.width = static_cast<int>(width);
+    result.height = static_cast<int>(height);
+    result.srgb = srgb;
+    if (const auto* sampler = texture.sampler)
+    {
+        if (sampler->min_filter) result.min_filter = sampler->min_filter;
+        if (sampler->mag_filter) result.mag_filter = sampler->mag_filter;
+        result.wrap_s = sampler->wrap_s;
+        result.wrap_t = sampler->wrap_t;
+    }
+    result.rgba.resize(width * height * 4);
+    if (FAILED(rgba->CopyPixels(nullptr, width * 4,
+        static_cast<UINT>(result.rgba.size()), result.rgba.data())))
+        return std::unexpected("Cannot read GLB texture pixels.");
+    return result;
+}
+
+bool ReadAttribute(const cgltf_accessor& accessor, cgltf_type type, std::size_t count,
+    std::size_t components, std::vector<float>& values)
+{
+    if (accessor.type != type || accessor.count != count ||
+        count > values.max_size() / components)
+        return false;
+    values.resize(count * components);
+    return cgltf_accessor_unpack_floats(&accessor, values.data(), values.size()) == values.size() &&
+        std::ranges::all_of(values, [](float value) { return std::isfinite(value); });
+}
+}
 
 std::expected<std::vector<std::byte>, std::string> MeshLoading::Read(const std::filesystem::path& path)
 {
@@ -74,6 +152,26 @@ std::expected<std::shared_ptr<const MeshData>, std::string> MeshLoading::Parse(s
     if (!scene) return std::unexpected("GLB contains no scene.");
 
     auto result = std::make_shared<MeshData>();
+    std::array<std::unordered_map<const cgltf_texture*, std::size_t>, 2> textures;
+    const auto read_texture = [&](const cgltf_texture_view& view, bool srgb,
+        std::optional<std::size_t>& index) -> std::expected<void, std::string>
+    {
+        if (!view.texture) return {};
+        if (view.texcoord != 0 || view.has_transform)
+            return std::unexpected("PBR textures require TEXCOORD_0 without texture transforms.");
+        auto& cache = textures[srgb];
+        if (auto found = cache.find(view.texture); found != cache.end())
+        {
+            index = found->second;
+            return {};
+        }
+        auto image = DecodeTexture(*view.texture, srgb);
+        if (!image) return std::unexpected(std::move(image.error()));
+        index = result->textures.size();
+        result->textures.push_back(std::move(*image));
+        cache.emplace(view.texture, *index);
+        return {};
+    };
     std::unordered_map<const cgltf_primitive*, std::size_t> geometries;
     struct Node { const cgltf_node* node; glm::mat4 parent; };
     std::vector<Node> pending;
@@ -105,9 +203,16 @@ std::expected<std::shared_ptr<const MeshData>, std::string> MeshLoading::Parse(s
                     if (primitive->type != cgltf_primitive_type_triangles)
                         return std::unexpected("Only triangle primitives are supported.");
                     const cgltf_accessor* positions = nullptr;
+                    const cgltf_accessor* normals = nullptr;
+                    const cgltf_accessor* texcoords = nullptr;
                     for (std::size_t a = 0; a < primitive->attributes_count; ++a)
-                        if (primitive->attributes[a].type == cgltf_attribute_type_position)
-                            positions = primitive->attributes[a].data;
+                    {
+                        const auto& attribute = primitive->attributes[a];
+                        if (attribute.type == cgltf_attribute_type_position) positions = attribute.data;
+                        if (attribute.type == cgltf_attribute_type_normal) normals = attribute.data;
+                        if (attribute.type == cgltf_attribute_type_texcoord && attribute.index == 0)
+                            texcoords = attribute.data;
+                    }
                     if (!positions || positions->type != cgltf_type_vec3 ||
                         positions->component_type != cgltf_component_type_r_32f ||
                         !positions->count || positions->count > std::numeric_limits<std::uint32_t>::max() ||
@@ -125,15 +230,53 @@ std::expected<std::shared_ptr<const MeshData>, std::string> MeshLoading::Parse(s
                         return std::unexpected("Invalid index accessor.");
                     MeshGeometry geometry;
                     geometry.positions.resize(positions->count);
-                    std::vector<float> unpacked(positions->count * 3);
-                    if (cgltf_accessor_unpack_floats(positions, unpacked.data(), unpacked.size()) != unpacked.size())
+                    std::vector<float> unpacked;
+                    if (!ReadAttribute(*positions, cgltf_type_vec3, positions->count, 3, unpacked))
                         return std::unexpected("Cannot unpack positions.");
                     for (std::size_t i = 0; i < positions->count; ++i)
-                    {
-                        for (int axis = 0; axis < 3; ++axis)
-                            if (!std::isfinite(unpacked[i * 3 + axis]))
-                                return std::unexpected("Non-finite vertex.");
                         geometry.positions[i] = glm::vec3(unpacked[i * 3], unpacked[i * 3 + 1], unpacked[i * 3 + 2]);
+                    if (normals)
+                    {
+                        if (!ReadAttribute(*normals, cgltf_type_vec3, positions->count, 3, unpacked))
+                            return std::unexpected("Invalid GLB normals.");
+                        geometry.normals.reserve(positions->count);
+                        for (std::size_t i = 0; i < positions->count; ++i)
+                            geometry.normals.emplace_back(unpacked[i * 3], unpacked[i * 3 + 1], unpacked[i * 3 + 2]);
+                    }
+                    if (texcoords)
+                    {
+                        if (!ReadAttribute(*texcoords, cgltf_type_vec2, positions->count, 2, unpacked))
+                            return std::unexpected("Invalid GLB texture coordinates.");
+                        geometry.texcoords.reserve(positions->count);
+                        for (std::size_t i = 0; i < positions->count; ++i)
+                            geometry.texcoords.emplace_back(unpacked[i * 2], unpacked[i * 2 + 1]);
+                    }
+                    if (const auto* material = primitive->material)
+                    {
+                        auto& surface = geometry.material;
+                        surface.double_sided = material->double_sided;
+                        if (material->alpha_mode == cgltf_alpha_mode_mask)
+                            surface.alpha_cutoff = material->alpha_cutoff;
+                        // shortcut: blend materials render opaque until a sorted transparent pass exists.
+                        if (material->has_pbr_metallic_roughness)
+                        {
+                            const auto& pbr = material->pbr_metallic_roughness;
+                            surface.base_color = glm::vec4(pbr.base_color_factor[0], pbr.base_color_factor[1],
+                                pbr.base_color_factor[2], pbr.base_color_factor[3]);
+                            surface.metallic = pbr.metallic_factor;
+                            surface.roughness = pbr.roughness_factor;
+                            if (!std::ranges::all_of(pbr.base_color_factor, [](float x) { return std::isfinite(x); }) ||
+                                !std::isfinite(surface.metallic) || !std::isfinite(surface.roughness) ||
+                                !std::isfinite(surface.alpha_cutoff))
+                                return std::unexpected("Non-finite GLB material factor.");
+                            if (!texcoords && (pbr.base_color_texture.texture || pbr.metallic_roughness_texture.texture))
+                                return std::unexpected("Textured GLB material requires UV coordinates.");
+                            if (auto loaded = read_texture(pbr.base_color_texture, true, surface.base_texture); !loaded)
+                                return std::unexpected(std::move(loaded.error()));
+                            if (auto loaded = read_texture(pbr.metallic_roughness_texture, false,
+                                surface.metallic_roughness_texture); !loaded)
+                                return std::unexpected(std::move(loaded.error()));
+                        }
                     }
                     geometry.indices.resize(index_count);
                     for (std::size_t i = 0; i < index_count; ++i)

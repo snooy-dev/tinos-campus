@@ -2,12 +2,17 @@ export module GameApi;
 import std;
 export import MeshResource;
 
-export inline constexpr unsigned kGameApiVersion = 3;
+export inline constexpr unsigned kGameApiVersion = 5;
 
 export struct GameFrame
 {
     glm::mat4 view_projection{ 1.0f };
     std::vector<MeshDraw> meshes;
+    // xyz is a perspective eye position (w=1) or a direction toward an orthographic camera (w=0).
+    glm::vec4 camera{ 0.0f, 0.0f, 1.0f, 0.0f };
+    glm::vec3 direction_to_light{ 0.4f, 1.0f, 0.6f };
+    glm::mat4 light_view_projection{ 1.0f };
+    bool shadows_enabled = false;
 };
 
 // Borrowed on the main thread until Shutdown returns; no work may be submitted during shutdown.
