@@ -176,6 +176,51 @@ std::expected<void, const char*> Renderer::InitializeMeshRendering()
     glBindTexture(GL_TEXTURE_2D, 0);
     if (!complete)
         return std::unexpected("Shadow framebuffer creation failed.");
+    auto sky = LoadProgram(shaders / "sky.vert", shaders / "sky.frag");
+    if (!sky) return std::unexpected(sky.error());
+    sky_program_ = *sky;
+    sky_uniforms_ = { glGetUniformLocation(sky_program_, "uSkyViewProjection"),
+        glGetUniformLocation(sky_program_, "uHorizonColor"),
+        glGetUniformLocation(sky_program_, "uZenithColor") };
+
+    constexpr unsigned longitude_segments = 32, latitude_segments = 16;
+    std::vector<glm::vec3> positions;
+    std::vector<unsigned> indices;
+    for (unsigned latitude = 0; latitude <= latitude_segments; ++latitude)
+    {
+        const float angle = std::numbers::pi_v<float> * latitude / latitude_segments;
+        for (unsigned longitude = 0; longitude <= longitude_segments; ++longitude)
+        {
+            const float azimuth = 2.0f * std::numbers::pi_v<float> * longitude / longitude_segments;
+            positions.emplace_back(std::sin(angle) * std::cos(azimuth), std::cos(angle),
+                std::sin(angle) * std::sin(azimuth));
+        }
+    }
+    for (unsigned latitude = 0; latitude < latitude_segments; ++latitude)
+        for (unsigned longitude = 0; longitude < longitude_segments; ++longitude)
+        {
+            const unsigned a = latitude * (longitude_segments + 1) + longitude;
+            const unsigned b = a + longitude_segments + 1;
+            if (latitude != 0)
+                indices.insert(indices.end(), { a, b, a + 1 });
+            if (latitude + 1 != latitude_segments)
+                indices.insert(indices.end(), { a + 1, b, b + 1 });
+        }
+    sky_index_count_ = static_cast<int>(indices.size());
+    while (glGetError() != GL_NO_ERROR) {}
+    glGenVertexArrays(1, &sky_vao_);
+    glGenBuffers(1, &sky_vertices_);
+    glGenBuffers(1, &sky_indices_);
+    glBindVertexArray(sky_vao_);
+    glBindBuffer(GL_ARRAY_BUFFER, sky_vertices_);
+    glBufferData(GL_ARRAY_BUFFER, positions.size() * sizeof(glm::vec3), positions.data(), GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(glm::vec3), nullptr);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, sky_indices_);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned), indices.data(), GL_STATIC_DRAW);
+    glBindVertexArray(0);
+    if (!sky_vao_ || !sky_vertices_ || !sky_indices_ || glGetError() != GL_NO_ERROR)
+        return std::unexpected("Sky dome GPU upload failed.");
     glDisable(GL_FRAMEBUFFER_SRGB);
     glEnable(GL_DEPTH_TEST);
     glDepthFunc(GL_LESS);
@@ -293,6 +338,12 @@ void Renderer::CollectUnusedMeshes()
 
 void Renderer::ReleaseMeshRendering()
 {
+    glDeleteBuffers(1, &sky_indices_);
+    glDeleteBuffers(1, &sky_vertices_);
+    glDeleteVertexArrays(1, &sky_vao_);
+    if (sky_program_) glDeleteProgram(sky_program_);
+    sky_program_ = sky_vao_ = sky_vertices_ = sky_indices_ = 0;
+    sky_index_count_ = 0;
     for (auto& [key, resource] : meshes_)
         Release(resource);
     meshes_.clear();

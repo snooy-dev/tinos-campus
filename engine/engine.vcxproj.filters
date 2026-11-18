@@ -86,5 +86,11 @@
     <None Include="..\contents\shaders\shadow.frag">
       <Filter>Resource Files</Filter>
     </None>
+    <None Include="..\contents\shaders\sky.vert">
+      <Filter>Resource Files</Filter>
+    </None>
+    <None Include="..\contents\shaders\sky.frag">
+      <Filter>Resource Files</Filter>
+    </None>
   </ItemGroup>
 </Project>

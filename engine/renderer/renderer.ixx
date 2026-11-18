@@ -19,6 +19,10 @@ export struct RenderFrame
     bool shadows_enabled = false;
     glm::vec3 sky_ambient{ 0.16f };
     glm::vec3 ground_ambient{ 0.16f };
+    glm::mat4 sky_view_projection{ 1.0f };
+    glm::vec3 horizon_color{ 0.55f, 0.73f, 0.83f };
+    glm::vec3 zenith_color{ 0.10f, 0.32f, 0.65f };
+    bool sky_enabled = false;
 };
 
 // Lifecycle and frame submission belong to the main thread; Application and JobSystem must outlive Renderer.
@@ -40,6 +44,7 @@ private:
     void Run();
     void Render(const RenderFrame& frame);
     void RenderShadowMap(const RenderFrame& frame);
+    void RenderSky(const RenderFrame& frame);
     [[nodiscard]] std::expected<void, const char*> InitializeMeshRendering();
     struct Geometry
     {
@@ -61,6 +66,12 @@ private:
     std::unordered_map<const MeshData*, Resource> meshes_;
     unsigned program_ = 0;
     unsigned shadow_program_ = 0, shadow_fbo_ = 0, shadow_depth_ = 0;
+    unsigned sky_program_ = 0, sky_vao_ = 0, sky_vertices_ = 0, sky_indices_ = 0;
+    int sky_index_count_ = 0;
+    struct SkyLocations
+    {
+        int view_projection, horizon_color, zenith_color;
+    } sky_uniforms_{};
     static constexpr int kShadowSize = 1024;
     struct ShadowLocations
     {

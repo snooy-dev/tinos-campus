@@ -152,6 +152,23 @@ void Renderer::RenderShadowMap(const RenderFrame& frame)
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
+void Renderer::RenderSky(const RenderFrame& frame)
+{
+    glUseProgram(sky_program_);
+    glUniformMatrix4fv(sky_uniforms_.view_projection, 1, GL_FALSE, &frame.sky_view_projection[0][0]);
+    glUniform3fv(sky_uniforms_.horizon_color, 1, &frame.horizon_color[0]);
+    glUniform3fv(sky_uniforms_.zenith_color, 1, &frame.zenith_color[0]);
+    glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LEQUAL);
+    glDepthMask(GL_FALSE);
+    glDisable(GL_CULL_FACE);
+    glBindVertexArray(sky_vao_);
+    glDrawElements(GL_TRIANGLES, sky_index_count_, GL_UNSIGNED_INT, nullptr);
+    glBindVertexArray(0);
+    glDepthMask(GL_TRUE);
+    glDepthFunc(GL_LESS);
+}
+
 void Renderer::Render(const RenderFrame& frame)
 {
     assert(std::this_thread::get_id() != owner_thread_);
@@ -165,6 +182,8 @@ void Renderer::Render(const RenderFrame& frame)
     glBindTexture(GL_TEXTURE_2D, shadow_depth_);
     glViewport(0, 0, frame.framebuffer_width, frame.framebuffer_height);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    if (frame.sky_enabled)
+        RenderSky(frame);
     glUseProgram(program_);
     glUniformMatrix4fv(uniforms_.view_projection, 1, GL_FALSE, &frame.view_projection[0][0]);
     glUniform4fv(uniforms_.camera, 1, &frame.camera[0]);

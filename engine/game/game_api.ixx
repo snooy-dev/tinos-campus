@@ -2,7 +2,7 @@ export module GameApi;
 import std;
 export import MeshResource;
 
-export inline constexpr unsigned kGameApiVersion = 6;
+export inline constexpr unsigned kGameApiVersion = 7;
 
 export struct GameFrame
 {
@@ -15,6 +15,10 @@ export struct GameFrame
     bool shadows_enabled = false;
     glm::vec3 sky_ambient{ 0.16f };
     glm::vec3 ground_ambient{ 0.16f };
+    glm::mat4 sky_view_projection{ 1.0f };
+    glm::vec3 horizon_color{ 0.55f, 0.73f, 0.83f };
+    glm::vec3 zenith_color{ 0.10f, 0.32f, 0.65f };
+    bool sky_enabled = false;
 };
 
 // Borrowed on the main thread until Shutdown returns; no work may be submitted during shutdown.

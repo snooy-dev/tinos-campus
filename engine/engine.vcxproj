@@ -130,9 +130,11 @@
     <None Include="..\contents\shaders\pbr.frag" />
     <None Include="..\contents\shaders\shadow.vert" />
     <None Include="..\contents\shaders\shadow.frag" />
+    <None Include="..\contents\shaders\sky.vert" />
+    <None Include="..\contents\shaders\sky.frag" />
   </ItemGroup>
   <Target Name="CopyMeshShaders" AfterTargets="Build">
-    <Copy SourceFiles="..\contents\shaders\pbr.vert;..\contents\shaders\pbr.frag;..\contents\shaders\shadow.vert;..\contents\shaders\shadow.frag"
+    <Copy SourceFiles="..\contents\shaders\pbr.vert;..\contents\shaders\pbr.frag;..\contents\shaders\shadow.vert;..\contents\shaders\shadow.frag;..\contents\shaders\sky.vert;..\contents\shaders\sky.frag"
       DestinationFolder="$(OutDir)contents\shaders" SkipUnchangedFiles="true" />
   </Target>
   <ImportGroup Label="ExtensionTargets">

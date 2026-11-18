@@ -34,6 +34,11 @@ public:
         frame.shadows_enabled = true;
         frame.sky_ambient = { 0.16f, 0.23f, 0.32f };
         frame.ground_ambient = { 0.12f, 0.17f, 0.085f };
+        const auto sky_projection = camera.GetProjectionMode() == ProjectionMode::Perspective
+            ? camera.GetProjectionMatrix(aspect_ratio)
+            : glm::perspective(glm::radians(60.0f), aspect_ratio, 0.1f, 10.0f);
+        frame.sky_view_projection = sky_projection * glm::mat4(glm::mat3(view));
+        frame.sky_enabled = true;
         return frame;
     }
     void Shutdown() override { scene_.Clear(); }
