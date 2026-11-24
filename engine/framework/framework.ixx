@@ -136,6 +136,23 @@ private:
     std::vector<std::unique_ptr<ActorComponent>> children_;
 };
 
+export class Character : public Actor
+{
+public:
+    using Actor::Actor;
+
+protected:
+    void Move(glm::vec3 velocity, double delta_seconds);
+};
+
+export class CameraArmComponent : public ActorComponent
+{
+public:
+    using ActorComponent::ActorComponent;
+    void SetOrbit(float yaw, float pitch);
+    [[nodiscard]] CameraComponent* AttachCamera(float length);
+};
+
 export class CameraActor : public Actor
 {
 public:

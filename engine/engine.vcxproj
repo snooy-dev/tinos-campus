@@ -100,7 +100,6 @@
     <ClCompile Include="platform\windows\game_module_windows.cpp" />
     <ClCompile Include="core\engine.cpp" />
     <ClCompile Include="core\engine.ixx" />
-    <ClCompile Include="input\input.ixx" />
     <ClCompile Include="platform\windows\main_windows.cpp" Condition="'$(EngineTests)' != 'true'" />
     <ClCompile Include="tests\engine_startup_tests.cpp" Condition="'$(EngineTests)' == 'true'" />
   </ItemGroup>

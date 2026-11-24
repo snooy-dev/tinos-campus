@@ -4,6 +4,7 @@ export module Application;
 
 import <GLFW/glfw3.h>;
 import std;
+import Input;
 
 export struct ApplicationState
 {
@@ -32,6 +33,7 @@ public:
     [[nodiscard]] GLFWwindow* Window() const { return window_; }
     // Requires successful initialization; called on the main thread.
     ApplicationState ProcessEvents();
+    [[nodiscard]] Input SampleInput();
     void WaitEvents();
     [[nodiscard]] std::expected<void, const char*> ActivateContext();
     void ReleaseContext();
@@ -42,4 +44,7 @@ private:
     const std::thread::id owner_thread_{ std::this_thread::get_id() };
     GLFWwindow* window_ = nullptr;
     ApplicationState state_;
+    bool orbiting_ = false;
+    double cursor_x_ = 0.0;
+    double cursor_y_ = 0.0;
 };

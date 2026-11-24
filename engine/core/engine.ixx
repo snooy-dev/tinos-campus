@@ -4,7 +4,6 @@ export module Engine;
 
 import std;
 import Application;
-import Input;
 import Renderer;
 import JobSystem;
 import GameModule;
@@ -22,13 +21,11 @@ public:
 
 private:
     void Shutdown();
-    ApplicationState ProcessInput();
     MeshHandle LoadMeshAsync(std::filesystem::path path) override;
     void Simulate(double delta_seconds);
 
     GameModule game_;
     Application application_;
-    Input input_;
     JobSystem jobs_;
     Renderer renderer_;
     bool initialized_ = false;

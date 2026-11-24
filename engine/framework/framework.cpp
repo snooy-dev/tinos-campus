@@ -11,6 +11,16 @@ ActorComponent::ActorComponent(Actor& actor, ActorComponent* parent)
 ActorComponent::~ActorComponent() = default;
 Actor::~Actor() = default;
 
+void Character::Move(glm::vec3 velocity, double delta_seconds)
+{
+    if (delta_seconds == 0.0 || velocity == glm::vec3{ 0.0f })
+        return;
+
+    auto transform = GetLocalTransform();
+    transform.position += velocity * static_cast<float>(delta_seconds);
+    SetLocalTransform(transform);
+}
+
 Scene::~Scene() { Clear(); }
 
 void Scene::Clear()
