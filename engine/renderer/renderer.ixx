@@ -5,6 +5,7 @@ export module Renderer;
 import std;
 import Application;
 import JobSystem;
+import GameUi;
 export import MeshResource;
 
 export struct RenderViewport { int x, y, width, height; };
@@ -27,6 +28,7 @@ export struct RenderFrame
     bool sky_enabled = false;
     std::optional<RenderViewport> viewport;
     std::function<void()> draw_overlay;
+    UiFrame ui;
 };
 
 // Lifecycle and frame submission belong to the main thread; Application and JobSystem must outlive Renderer.
@@ -49,6 +51,19 @@ private:
     void Render(const RenderFrame& frame);
     void RenderShadowMap(const RenderFrame& frame);
     void RenderSky(const RenderFrame& frame);
+    void RenderUi(const RenderFrame& frame);
+    std::expected<void, const char*> InitializeUiRendering(unsigned program);
+    void ReleaseUiRendering();
+    unsigned UploadUiTexture(const UiTextureHandle& owner);
+    struct UiGpuTexture
+    {
+        std::weak_ptr<const UiTexture> owner;
+        unsigned texture = 0;
+    };
+    struct UiLocations { int window, rect, color, has_texture; } ui_uniforms_{};
+    std::unordered_map<const UiTexture*, UiGpuTexture> ui_textures_;
+    unsigned ui_program_ = 0, ui_vao_ = 0;
+    int ui_texture_limit_ = 0;
     [[nodiscard]] std::expected<void, const char*> InitializeMeshRendering();
     struct Geometry
     {

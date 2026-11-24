@@ -10,7 +10,7 @@ import GameModule;
 import GameApi;
 
 // Construct, initialize, run and destroy on the main thread.
-export class Engine : private IEngineServices
+export class Engine : private IEngineServices, private IUiAssets
 {
 public:
     ~Engine();
@@ -22,6 +22,9 @@ public:
 private:
     void Shutdown();
     MeshHandle LoadMeshAsync(std::filesystem::path path) override;
+    std::expected<UiTextureHandle, const char*> LoadUiImage(const std::filesystem::path& path) override;
+    std::expected<UiTextureHandle, const char*> CreateUiText(const std::wstring& family,
+        float size, std::wstring_view text) override;
     void Simulate(double delta_seconds);
 
     GameModule game_;

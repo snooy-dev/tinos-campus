@@ -105,6 +105,7 @@ void Renderer::Run()
 
     if (context_result)
     {
+        ReleaseUiRendering();
         ReleaseMeshRendering();
         application_->ReleaseContext();
     }
@@ -241,6 +242,7 @@ void Renderer::Render(const RenderFrame& frame)
         }
     }
     glBindVertexArray(0);
+    RenderUi(frame);
     if (frame.draw_overlay)
         frame.draw_overlay();
     application_->Present();

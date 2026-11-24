@@ -8,6 +8,7 @@
     <ClCompile Include="$(MSBuildThisFileDirectory)assets\mesh_resource.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)renderer\mesh_renderer.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)renderer\renderer.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)renderer\ui_renderer.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)renderer\renderer.ixx" />
     <ClCompile Include="$(MSBuildThisFileDirectory)application\application.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)application\application.ixx" />
@@ -18,7 +19,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <MeshShaders Include="$(MSBuildThisFileDirectory)..\contents\shaders\pbr.*;$(MSBuildThisFileDirectory)..\contents\shaders\shadow.*;$(MSBuildThisFileDirectory)..\contents\shaders\sky.*" />
+    <MeshShaders Include="$(MSBuildThisFileDirectory)..\contents\shaders\pbr.*;$(MSBuildThisFileDirectory)..\contents\shaders\shadow.*;$(MSBuildThisFileDirectory)..\contents\shaders\sky.*;$(MSBuildThisFileDirectory)..\contents\shaders\ui.*" />
   </ItemGroup>
   <Target Name="CopyMeshShaders" AfterTargets="Build">
     <Copy SourceFiles="@(MeshShaders)" DestinationFolder="$(OutDir)contents\shaders" SkipUnchangedFiles="true">

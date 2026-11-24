@@ -44,7 +44,7 @@ std::expected<unsigned, const char*> LoadProgram(const std::filesystem::path& ve
     auto vertex = MeshLoading::Read(vertex_path);
     auto fragment = MeshLoading::Read(fragment_path);
     if (!vertex || !fragment)
-        return std::unexpected("Cannot read mesh shader files beside the executable.");
+        return std::unexpected("Cannot read shader files beside the executable.");
     vertex->push_back(std::byte{});
     fragment->push_back(std::byte{});
     const auto vs = Compile(GL_VERTEX_SHADER, reinterpret_cast<const char*>(vertex->data()));
@@ -53,7 +53,7 @@ std::expected<unsigned, const char*> LoadProgram(const std::filesystem::path& ve
     {
         if (vs) glDeleteShader(vs);
         if (fs) glDeleteShader(fs);
-        return std::unexpected("Mesh shader compilation failed.");
+        return std::unexpected("Shader compilation failed.");
     }
     const auto program = glCreateProgram();
     if (program)
@@ -77,7 +77,7 @@ std::expected<unsigned, const char*> LoadProgram(const std::filesystem::path& ve
 #endif
         }
         if (program) glDeleteProgram(program);
-        return std::unexpected("Mesh shader linking failed.");
+        return std::unexpected("Shader linking failed.");
     }
     return program;
 }
@@ -230,7 +230,9 @@ std::expected<void, const char*> Renderer::InitializeMeshRendering()
     glDepthFunc(GL_LESS);
     glDisable(GL_CULL_FACE);
     glDisable(GL_BLEND);
-    return {};
+    const auto ui = LoadProgram(shaders / "ui.vert", shaders / "ui.frag");
+    if (!ui) return std::unexpected(ui.error());
+    return InitializeUiRendering(*ui);
 }
 
 std::expected<Renderer::Resource*, const char*> Renderer::Upload(const std::shared_ptr<const MeshData>& data)

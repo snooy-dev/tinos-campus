@@ -27,7 +27,7 @@ std::expected<void, std::string> Engine::Initialize()
     if (initialized_)
         return {};
 
-    const auto application_result = application_.Initialize();
+    const auto application_result = application_.Initialize(true);
     if (!application_result)
         return std::unexpected(application_result.error());
 
@@ -40,7 +40,7 @@ std::expected<void, std::string> Engine::Initialize()
     }
 
     stopping_ = false;
-    const auto game_result = game_.Initialize(*this);
+    const auto game_result = game_.Initialize(*this, *this);
     if (!game_result)
     {
         Shutdown();
@@ -55,11 +55,12 @@ void Engine::Run()
 {
     assert(initialized_);
     std::optional<std::chrono::steady_clock::time_point> previous_time;
+    bool gameplay_paused = true;
     while (true)
     {
         renderer_.WaitForFrameSlot();
         const auto state = application_.ProcessEvents();
-        const auto input = application_.SampleInput();
+        const auto input = application_.SampleInput(gameplay_paused);
         if (state.close_requested)
         {
             break;
@@ -80,13 +81,16 @@ void Engine::Run()
             continue;
         const float aspect_ratio = static_cast<float>(state.framebuffer_width) /
             static_cast<float>(state.framebuffer_height);
-        auto frame = game_.Update(delta_seconds, aspect_ratio, input);
-        Simulate(delta_seconds);
+        auto frame = game_.Update(delta_seconds, aspect_ratio, input, application_.SampleUiInput());
+        if (!gameplay_paused && !frame.gameplay_paused)
+            Simulate(delta_seconds);
+        gameplay_paused = frame.gameplay_paused;
         renderer_.SubmitFrame({ state.framebuffer_width, state.framebuffer_height,
             frame.view_projection, std::move(frame.meshes), frame.camera,
             frame.direction_to_light, frame.light_view_projection, frame.shadows_enabled,
             frame.sky_ambient, frame.ground_ambient,
-            frame.sky_view_projection, frame.horizon_color, frame.zenith_color, frame.sky_enabled });
+            frame.sky_view_projection, frame.horizon_color, frame.zenith_color, frame.sky_enabled,
+            {}, {}, std::move(frame.ui) });
     }
 
     Shutdown();

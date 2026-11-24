@@ -101,6 +101,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="game.cpp" Condition="'$(LevelTests)' != 'true'" />
+    <ClCompile Include="campus_menu.ixx" Condition="'$(LevelTests)' != 'true'" />
     <ClCompile Include="tino.ixx" Condition="'$(LevelTests)' != 'true'" />
     <ClCompile Include="tests\level_tests.cpp" Condition="'$(LevelTests)' == 'true'" />
     <ClCompile Include="..\engine\assets\mesh_resource.cpp" Condition="'$(LevelTests)' == 'true'" />

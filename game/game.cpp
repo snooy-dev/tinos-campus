@@ -1,5 +1,6 @@
 import std;
 import GameApi;
+import CampusMenu;
 import Level;
 import TinoCharacter;
 import <glm/gtc/matrix_transform.hpp>;
@@ -9,7 +10,7 @@ namespace
 class Game final : public IGame
 {
 public:
-    std::expected<void, const char*> Initialize(IEngineServices& services) override
+    std::expected<void, const char*> Initialize(IEngineServices& services, IUiAssets& ui_assets) override
     {
         const auto content = Level::ExecutableContentRoot();
         if (!content)
@@ -36,14 +37,23 @@ public:
         Transform spawn;
         spawn.position.x = 2.0f;
         tino_->SetLocalTransform(spawn);
-        return scene.SetActiveCamera(tino_->GetCamera());
+        const auto camera = scene.SetActiveCamera(tino_->GetCamera());
+        if (!camera) return camera;
+        scene.UpdateWorldTransforms();
+        return menu_.Initialize(ui_assets, *content);
     }
-    GameFrame Update(double delta_seconds, float aspect_ratio, const Input& input) override
+    GameFrame Update(double delta_seconds, float aspect_ratio, const Input& input,
+        const UiInput& ui_input) override
     {
         auto& scene = level_->GetScene();
-        tino_->SetInput(input);
-        scene.Update(delta_seconds);
-        scene.UpdateWorldTransforms();
+        const bool was_paused = menu_.Paused();
+        menu_.Update(ui_input);
+        if (!was_paused && !menu_.Paused())
+        {
+            tino_->SetInput(input);
+            scene.Update(delta_seconds);
+            scene.UpdateWorldTransforms();
+        }
         const auto& camera = scene.GetActiveCamera();
         const auto view = camera.GetViewMatrix();
         const auto eye = camera.GetProjectionMode() == ProjectionMode::Perspective
@@ -66,6 +76,8 @@ public:
             : glm::perspective(glm::radians(60.0f), aspect_ratio, 0.1f, 10.0f);
         frame.sky_view_projection = sky_projection * glm::mat4(glm::mat3(view));
         frame.sky_enabled = true;
+        frame.ui = menu_.Draw(ui_input.window);
+        frame.gameplay_paused = menu_.Paused();
         return frame;
     }
     void Shutdown() override
@@ -76,6 +88,7 @@ public:
 
 private:
     std::optional<Level> level_;
+    CampusMenu menu_;
     Tino* tino_ = nullptr;
     std::string error_;
 };
