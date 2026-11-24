@@ -9,8 +9,9 @@ public:
     ~GameModule();
     GameModule(const GameModule&) = delete;
     GameModule& operator=(const GameModule&) = delete;
-    std::expected<void, std::string> Initialize(IEngineServices& services);
-    GameFrame Update(double delta_seconds, float aspect_ratio, const Input& input);
+    std::expected<void, std::string> Initialize(IEngineServices& services, IUiAssets& ui_assets);
+    GameFrame Update(double delta_seconds, float aspect_ratio, const Input& input,
+        const UiInput& ui_input);
     void Shutdown();
     void Destroy();
     void Unload();

@@ -5,6 +5,7 @@ export module Application;
 import <GLFW/glfw3.h>;
 import std;
 import Input;
+import GameUi;
 
 export struct ApplicationState
 {
@@ -28,12 +29,13 @@ public:
     Application(Application&&) = delete;
     Application& operator=(Application&&) = delete;
 
-    [[nodiscard]] std::expected<void, const char*> Initialize();
+    [[nodiscard]] std::expected<void, const char*> Initialize(bool enable_game_ui = false);
     void Shutdown();
     [[nodiscard]] GLFWwindow* Window() const { return window_; }
     // Requires successful initialization; called on the main thread.
     ApplicationState ProcessEvents();
-    [[nodiscard]] Input SampleInput();
+    [[nodiscard]] Input SampleInput(bool gameplay_paused = false);
+    [[nodiscard]] UiInput SampleUiInput();
     void WaitEvents();
     [[nodiscard]] std::expected<void, const char*> ActivateContext();
     void ReleaseContext();
@@ -45,6 +47,8 @@ private:
     GLFWwindow* window_ = nullptr;
     ApplicationState state_;
     bool orbiting_ = false;
+    bool orbit_blocked_until_release_ = false;
+    std::vector<UiEvent> ui_events_;
     double cursor_x_ = 0.0;
     double cursor_y_ = 0.0;
 };

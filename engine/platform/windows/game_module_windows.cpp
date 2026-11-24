@@ -11,7 +11,7 @@ GameModule::~GameModule()
     Unload();
 }
 
-std::expected<void, std::string> GameModule::Initialize(IEngineServices& services)
+std::expected<void, std::string> GameModule::Initialize(IEngineServices& services, IUiAssets& ui_assets)
 {
     assert(!library_);
     std::wstring path(256, L'\0');
@@ -43,16 +43,17 @@ std::expected<void, std::string> GameModule::Initialize(IEngineServices& service
     if (!game_)
         return std::unexpected("game.dll rejected the API version or could not create the game.");
     started_ = true;
-    const auto result = game_->Initialize(services);
+    const auto result = game_->Initialize(services, ui_assets);
     if (!result)
         return std::unexpected(std::string(result.error() ? result.error() : "Game initialization failed."));
     return {};
 }
 
-GameFrame GameModule::Update(double delta_seconds, float aspect_ratio, const Input& input)
+GameFrame GameModule::Update(double delta_seconds, float aspect_ratio, const Input& input,
+    const UiInput& ui_input)
 {
     assert(started_ && game_);
-    return game_->Update(delta_seconds, aspect_ratio, input);
+    return game_->Update(delta_seconds, aspect_ratio, input, ui_input);
 }
 
 void GameModule::Shutdown()

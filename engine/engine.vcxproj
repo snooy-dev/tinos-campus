@@ -71,6 +71,7 @@
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies>d2d1.lib;dwrite.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <Manifest>
       <EnableSegmentHeap>true</EnableSegmentHeap>
@@ -98,6 +99,7 @@
   <ItemGroup>
     <ClCompile Include="game\game_module.ixx" />
     <ClCompile Include="platform\windows\game_module_windows.cpp" />
+    <ClCompile Include="platform\windows\ui_assets_windows.cpp" />
     <ClCompile Include="core\engine.cpp" />
     <ClCompile Include="core\engine.ixx" />
     <ClCompile Include="platform\windows\main_windows.cpp" Condition="'$(EngineTests)' != 'true'" />

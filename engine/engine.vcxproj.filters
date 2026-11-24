@@ -34,6 +34,9 @@
     <ClCompile Include="assets\mesh_resource.ixx"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="assets\mesh_resource.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="renderer\mesh_renderer.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="renderer\ui_renderer.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="ui\game_ui.ixx"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="platform\windows\ui_assets_windows.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="game\game_api.ixx">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -92,5 +95,7 @@
     <None Include="..\contents\shaders\sky.frag">
       <Filter>Resource Files</Filter>
     </None>
+    <None Include="..\contents\shaders\ui.vert"><Filter>Resource Files</Filter></None>
+    <None Include="..\contents\shaders\ui.frag"><Filter>Resource Files</Filter></None>
   </ItemGroup>
 </Project>
