@@ -2,7 +2,10 @@
 
 export module Input;
 
-// Reserved for the planned input system, to be implemented incrementally.
-export class Input
+export struct Input
 {
+    int move_right = 0;
+    int move_forward = 0;
+    double orbit_x = 0.0;
+    double orbit_y = 0.0;
 };

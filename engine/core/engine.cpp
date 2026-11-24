@@ -58,7 +58,8 @@ void Engine::Run()
     while (true)
     {
         renderer_.WaitForFrameSlot();
-        const auto state = ProcessInput();
+        const auto state = application_.ProcessEvents();
+        const auto input = application_.SampleInput();
         if (state.close_requested)
         {
             break;
@@ -79,7 +80,7 @@ void Engine::Run()
             continue;
         const float aspect_ratio = static_cast<float>(state.framebuffer_width) /
             static_cast<float>(state.framebuffer_height);
-        auto frame = game_.Update(delta_seconds, aspect_ratio);
+        auto frame = game_.Update(delta_seconds, aspect_ratio, input);
         Simulate(delta_seconds);
         renderer_.SubmitFrame({ state.framebuffer_width, state.framebuffer_height,
             frame.view_projection, std::move(frame.meshes), frame.camera,
@@ -89,11 +90,6 @@ void Engine::Run()
     }
 
     Shutdown();
-}
-
-ApplicationState Engine::ProcessInput()
-{
-    return application_.ProcessEvents();
 }
 
 MeshHandle Engine::LoadMeshAsync(std::filesystem::path path)

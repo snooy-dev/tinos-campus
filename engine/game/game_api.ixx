@@ -1,8 +1,9 @@
 export module GameApi;
 import std;
+export import Input;
 export import MeshResource;
 
-export inline constexpr unsigned kGameApiVersion = 7;
+export inline constexpr unsigned kGameApiVersion = 8;
 
 export struct GameFrame
 {
@@ -37,7 +38,7 @@ public:
     virtual std::expected<void, const char*> Initialize(IEngineServices& services) = 0;
     // aspect_ratio must be finite and positive.
     // Frames contain engine-owned mesh data, never game objects or callbacks.
-    virtual GameFrame Update(double delta_seconds, float aspect_ratio) = 0;
+    virtual GameFrame Update(double delta_seconds, float aspect_ratio, const Input& input) = 0;
     // Also called after failed initialization; stop and join all game-owned work.
     virtual void Shutdown() = 0;
 };

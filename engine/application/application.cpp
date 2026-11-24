@@ -95,6 +95,7 @@ void Application::Shutdown()
     glfwTerminate();
     glfw_in_use = false;
     state_ = {};
+    orbiting_ = false;
 }
 
 ApplicationState Application::ProcessEvents()
@@ -106,6 +107,37 @@ ApplicationState Application::ProcessEvents()
     state_.close_requested = glfwWindowShouldClose(window_) == GLFW_TRUE;
 
     return state_;
+}
+
+Input Application::SampleInput()
+{
+    assert(std::this_thread::get_id() == owner_thread_ && window_);
+    Input input;
+    const bool active = state_.focused && !state_.minimized && !state_.close_requested;
+    const bool orbit = active && glfwGetMouseButton(window_, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS;
+    if (orbit != orbiting_)
+        glfwSetInputMode(window_, GLFW_CURSOR, orbit ? GLFW_CURSOR_DISABLED : GLFW_CURSOR_NORMAL);
+    if (orbit)
+    {
+        double x = 0.0;
+        double y = 0.0;
+        glfwGetCursorPos(window_, &x, &y);
+        if (orbiting_)
+        {
+            input.orbit_x = x - cursor_x_;
+            input.orbit_y = y - cursor_y_;
+        }
+        cursor_x_ = x;
+        cursor_y_ = y;
+    }
+    orbiting_ = orbit;
+    if (active)
+    {
+        const auto down = [this](int key) { return glfwGetKey(window_, key) == GLFW_PRESS; };
+        input.move_right = down(GLFW_KEY_D) - down(GLFW_KEY_A);
+        input.move_forward = down(GLFW_KEY_W) - down(GLFW_KEY_S);
+    }
+    return input;
 }
 
 void Application::WaitEvents()

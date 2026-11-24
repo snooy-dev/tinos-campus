@@ -107,6 +107,27 @@ std::expected<void, const char*> CameraComponent::SetOrthographic(
     return {};
 }
 
+void CameraArmComponent::SetOrbit(float yaw, float pitch)
+{
+    auto transform = GetLocalTransform();
+    transform.rotation = glm::angleAxis(yaw, glm::vec3{ 0.0f, 1.0f, 0.0f }) *
+        glm::angleAxis(pitch, glm::vec3{ 1.0f, 0.0f, 0.0f });
+    SetLocalTransform(transform);
+}
+
+CameraComponent* CameraArmComponent::AttachCamera(float length)
+{
+    assert(std::isfinite(length) && length > 0.0f);
+    auto* camera = AddComponent<CameraComponent>();
+    if (camera)
+    {
+        Transform offset;
+        offset.position.z = length;
+        camera->SetLocalTransform(offset);
+    }
+    return camera;
+}
+
 CameraActor::CameraActor(Scene& scene) : Actor(scene), camera_(AddComponent<CameraComponent>())
 {
 }
