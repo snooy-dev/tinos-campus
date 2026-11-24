@@ -7,6 +7,8 @@ import Application;
 import JobSystem;
 export import MeshResource;
 
+export struct RenderViewport { int x, y, width, height; };
+
 export struct RenderFrame
 {
     int framebuffer_width = 0;
@@ -23,6 +25,8 @@ export struct RenderFrame
     glm::vec3 horizon_color{ 0.55f, 0.73f, 0.83f };
     glm::vec3 zenith_color{ 0.10f, 0.32f, 0.65f };
     bool sky_enabled = false;
+    std::optional<RenderViewport> viewport;
+    std::function<void()> draw_overlay;
 };
 
 // Lifecycle and frame submission belong to the main thread; Application and JobSystem must outlive Renderer.

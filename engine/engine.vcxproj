@@ -51,6 +51,8 @@
     <OutDir>$(MSBuildProjectDirectory)\..\bin\$(Platform)\$(Configuration)\</OutDir>
     <IntDir>$(MSBuildProjectDirectory)\..\build\$(Platform)\$(Configuration)\$(MSBuildProjectName)\</IntDir>
     <TargetName>TinosCampus</TargetName>
+    <IntDir Condition="'$(EngineTests)' == 'true'">$(MSBuildProjectDirectory)\..\build\$(Platform)\$(Configuration)\engine_tests\</IntDir>
+    <TargetName Condition="'$(EngineTests)' == 'true'">engine_startup_tests</TargetName>
   </PropertyGroup>
   <PropertyGroup Label="Vcpkg">
     <VcpkgEnableManifest>true</VcpkgEnableManifest>
@@ -69,7 +71,6 @@
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalDependencies>windowscodecs.lib;ole32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <Manifest>
       <EnableSegmentHeap>true</EnableSegmentHeap>
@@ -90,30 +91,18 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
-      <SubSystem>Windows</SubSystem>
+      <SubSystem Condition="'$(EngineTests)' != 'true'">Windows</SubSystem>
+      <SubSystem Condition="'$(EngineTests)' == 'true'">Console</SubSystem>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="platform\windows\debug_windows.cpp" />
-    <ClCompile Include="core\debug.cpp" />
-    <ClCompile Include="core\debug.ixx" />
-    <ClCompile Include="core\job_system.cpp" />
-    <ClCompile Include="core\job_system.ixx" />
-    <ClCompile Include="framework\transform.ixx" />
-    <ClCompile Include="assets\mesh_resource.ixx" />
-    <ClCompile Include="assets\mesh_resource.cpp" />
-    <ClCompile Include="renderer\mesh_renderer.cpp" />
-    <ClCompile Include="game\game_api.ixx" />
     <ClCompile Include="game\game_module.ixx" />
     <ClCompile Include="platform\windows\game_module_windows.cpp" />
     <ClCompile Include="core\engine.cpp" />
     <ClCompile Include="core\engine.ixx" />
-    <ClCompile Include="renderer\renderer.cpp" />
-    <ClCompile Include="renderer\renderer.ixx" />
     <ClCompile Include="input\input.ixx" />
-    <ClCompile Include="platform\windows\main_windows.cpp" />
-    <ClCompile Include="application\application.cpp" />
-    <ClCompile Include="application\application.ixx" />
+    <ClCompile Include="platform\windows\main_windows.cpp" Condition="'$(EngineTests)' != 'true'" />
+    <ClCompile Include="tests\engine_startup_tests.cpp" Condition="'$(EngineTests)' == 'true'" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="core\log.hpp" />
@@ -124,19 +113,9 @@
       <LinkLibraryDependencies>false</LinkLibraryDependencies>
     </ProjectReference>
   </ItemGroup>
+  <Import Project="..\engine\types.props" />
+  <Import Project="..\engine\runtime.props" />
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
-  <ItemGroup>
-    <None Include="..\contents\shaders\pbr.vert" />
-    <None Include="..\contents\shaders\pbr.frag" />
-    <None Include="..\contents\shaders\shadow.vert" />
-    <None Include="..\contents\shaders\shadow.frag" />
-    <None Include="..\contents\shaders\sky.vert" />
-    <None Include="..\contents\shaders\sky.frag" />
-  </ItemGroup>
-  <Target Name="CopyMeshShaders" AfterTargets="Build">
-    <Copy SourceFiles="..\contents\shaders\pbr.vert;..\contents\shaders\pbr.frag;..\contents\shaders\shadow.vert;..\contents\shaders\shadow.frag;..\contents\shaders\sky.vert;..\contents\shaders\sky.frag"
-      DestinationFolder="$(OutDir)contents\shaders" SkipUnchangedFiles="true" />
-  </Target>
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
   <Target Name="RestoreVcpkgBeforeModuleScan" BeforeTargets="SetModuleDependencies" DependsOnTargets="VcpkgInstallManifestDependencies" Condition="'$(DesignTimeBuild)' != 'true' and '$(VcpkgEnableManifest)' == 'true'" />

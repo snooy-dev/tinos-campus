@@ -1,0 +1,7 @@
+{
+  "name": "glaze",
+  "version": "9.1.0",
+  "description": "C++ JSON serialization library",
+  "homepage": "https://github.com/stephenberry/glaze",
+  "license": "MIT"
+}

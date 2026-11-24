@@ -1,0 +1,28 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="$(MSBuildThisFileDirectory)platform\windows\debug_windows.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)core\debug.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)core\debug.ixx" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)core\job_system.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)core\job_system.ixx" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)assets\mesh_resource.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)renderer\mesh_renderer.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)renderer\renderer.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)renderer\renderer.ixx" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)application\application.cpp" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)application\application.ixx" />
+  </ItemGroup>
+  <ItemDefinitionGroup>
+    <Link>
+      <AdditionalDependencies>windowscodecs.lib;ole32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <MeshShaders Include="$(MSBuildThisFileDirectory)..\contents\shaders\pbr.*;$(MSBuildThisFileDirectory)..\contents\shaders\shadow.*;$(MSBuildThisFileDirectory)..\contents\shaders\sky.*" />
+  </ItemGroup>
+  <Target Name="CopyMeshShaders" AfterTargets="Build">
+    <Copy SourceFiles="@(MeshShaders)" DestinationFolder="$(OutDir)contents\shaders" SkipUnchangedFiles="true">
+      <Output TaskParameter="CopiedFiles" ItemName="FileWrites" />
+    </Copy>
+  </Target>
+</Project>

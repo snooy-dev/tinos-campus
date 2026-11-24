@@ -1,0 +1,148 @@
+{
+  "schema_version": 1,
+  "active_camera": "view-camera",
+  "objects": [
+    {
+      "id": "triangle",
+      "type": "mesh_component",
+      "owner": "triangle-actor",
+      "parent": "triangle-root",
+      "slot": null,
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "properties": {
+        "color": [
+          0.2,
+          0.7,
+          1
+        ],
+        "asset": "삼각형.glb"
+      }
+    },
+    {
+      "id": "view-camera",
+      "type": "camera_component",
+      "owner": "view",
+      "parent": null,
+      "slot": "primary_camera",
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "properties": {
+        "mode": "perspective",
+        "fov_y_radians": 1.0471976,
+        "near_plane": 0.1,
+        "far_plane": 100
+      }
+    },
+    {
+      "id": "triangle-root",
+      "type": "actor_component",
+      "owner": "triangle-actor",
+      "parent": null,
+      "slot": null,
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "properties": {}
+    },
+    {
+      "id": "view",
+      "type": "camera_actor",
+      "owner": null,
+      "parent": null,
+      "slot": null,
+      "transform": {
+        "position": [
+          0,
+          0,
+          3
+        ],
+        "rotation": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "properties": {}
+    },
+    {
+      "id": "triangle-actor",
+      "type": "actor",
+      "owner": null,
+      "parent": null,
+      "slot": null,
+      "transform": {
+        "position": [
+          0,
+          0,
+          0
+        ],
+        "rotation": [
+          1,
+          0,
+          0,
+          0
+        ],
+        "scale": [
+          1,
+          1,
+          1
+        ]
+      },
+      "properties": {}
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+vcpkg_from_github(
+    OUT_SOURCE_PATH SOURCE_PATH
+    REPO stephenberry/glaze
+    REF a53ddd59c6ff72ef42065b962dcb899711622f47
+    SHA512 393adc8d3fe64012dbab814293a72a7f2b6ae32fc007f7eacd32877bc290643674f1ac42ec4feda0b49d3243907b76d07a7ce95e6a7e742f143d40f7cf6a848c
+)
+
+file(INSTALL "${SOURCE_PATH}/include/" DESTINATION "${CURRENT_PACKAGES_DIR}/include")
+vcpkg_install_copyright(FILE_LIST "${SOURCE_PATH}/LICENSE")

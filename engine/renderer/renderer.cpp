@@ -180,7 +180,9 @@ void Renderer::Render(const RenderFrame& frame)
         RenderShadowMap(frame);
     glActiveTexture(GL_TEXTURE2);
     glBindTexture(GL_TEXTURE_2D, shadow_depth_);
-    glViewport(0, 0, frame.framebuffer_width, frame.framebuffer_height);
+    const auto area = frame.viewport.value_or(RenderViewport{
+        0, 0, frame.framebuffer_width, frame.framebuffer_height });
+    glViewport(area.x, area.y, area.width, area.height);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     if (frame.sky_enabled)
         RenderSky(frame);
@@ -197,12 +199,14 @@ void Renderer::Render(const RenderFrame& frame)
         const auto resource = Upload(draw.data);
         if (!resource)
         {
+#ifdef _DEBUG
             const auto failed = meshes_.find(draw.data.get());
             if (failed != meshes_.end() && !failed->second.error_reported)
             {
                 LOG(Error, "{}", resource.error());
                 failed->second.error_reported = true;
             }
+#endif
             continue;
         }
         for (const auto& instance : draw.data->instances)
@@ -237,5 +241,7 @@ void Renderer::Render(const RenderFrame& frame)
         }
     }
     glBindVertexArray(0);
+    if (frame.draw_overlay)
+        frame.draw_overlay();
     application_->Present();
 }

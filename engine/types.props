@@ -1,0 +1,7 @@
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="$(MSBuildThisFileDirectory)game\game_api.ixx" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)framework\transform.ixx" />
+    <ClCompile Include="$(MSBuildThisFileDirectory)assets\mesh_resource.ixx" />
+  </ItemGroup>
+</Project>

@@ -27,9 +27,11 @@ unsigned Compile(unsigned type, const char* source)
     glGetShaderiv(shader, GL_COMPILE_STATUS, &ok);
     if (!ok)
     {
+#ifdef _DEBUG
         char log[2048]{};
         glGetShaderInfoLog(shader, sizeof(log), nullptr, log);
         OutputDebugStringA(log);
+#endif
         glDeleteShader(shader);
         return 0;
     }
@@ -68,9 +70,11 @@ std::expected<unsigned, const char*> LoadProgram(const std::filesystem::path& ve
     {
         if (program)
         {
+#ifdef _DEBUG
             char log[2048]{};
             glGetProgramInfoLog(program, sizeof(log), nullptr, log);
             OutputDebugStringA(log);
+#endif
         }
         if (program) glDeleteProgram(program);
         return std::unexpected("Mesh shader linking failed.");
