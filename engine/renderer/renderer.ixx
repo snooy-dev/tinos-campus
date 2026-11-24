@@ -15,6 +15,16 @@ export struct RenderFrame
     int framebuffer_height = 0;
     glm::mat4 view_projection{ 1.0f };
     std::vector<MeshDraw> meshes;
+    glm::vec4 camera{ 0.0f, 0.0f, 1.0f, 0.0f };
+    glm::vec3 direction_to_light{ 0.4f, 1.0f, 0.6f };
+    glm::mat4 light_view_projection{ 1.0f };
+    bool shadows_enabled = false;
+    glm::vec3 sky_ambient{ 0.16f };
+    glm::vec3 ground_ambient{ 0.16f };
+    glm::mat4 sky_view_projection{ 1.0f };
+    glm::vec3 horizon_color{ 0.55f, 0.73f, 0.83f };
+    glm::vec3 zenith_color{ 0.10f, 0.32f, 0.65f };
+    bool sky_enabled = false;
     std::optional<RenderViewport> viewport;
     std::function<void()> draw_overlay;
 };
@@ -37,16 +47,19 @@ public:
 private:
     void Run();
     void Render(const RenderFrame& frame);
+    void RenderShadowMap(const RenderFrame& frame);
+    void RenderSky(const RenderFrame& frame);
     [[nodiscard]] std::expected<void, const char*> InitializeMeshRendering();
     struct Geometry
     {
-        unsigned vao = 0, vertices = 0, indices = 0;
+        unsigned vao = 0, vertices = 0, normals = 0, texcoords = 0, indices = 0;
         int count = 0;
     };
     struct Resource
     {
         std::weak_ptr<const MeshData> owner;
         std::vector<Geometry> geometries;
+        std::vector<unsigned> textures;
         const char* error = nullptr;
         bool error_reported = false;
     };
@@ -56,7 +69,25 @@ private:
     void ReleaseMeshRendering();
     std::unordered_map<const MeshData*, Resource> meshes_;
     unsigned program_ = 0;
-    int transform_location_ = -1, color_location_ = -1;
+    unsigned shadow_program_ = 0, shadow_fbo_ = 0, shadow_depth_ = 0;
+    unsigned sky_program_ = 0, sky_vao_ = 0, sky_vertices_ = 0, sky_indices_ = 0;
+    int sky_index_count_ = 0;
+    struct SkyLocations
+    {
+        int view_projection, horizon_color, zenith_color;
+    } sky_uniforms_{};
+    static constexpr int kShadowSize = 1024;
+    struct ShadowLocations
+    {
+        int light_view_projection, model, base_alpha, alpha_cutoff, has_base_texture;
+    } shadow_uniforms_{};
+    struct ShaderLocations
+    {
+        int view_projection, model, normal_matrix, camera, base_color;
+        int metallic, roughness, alpha_cutoff, has_normals, has_base_texture, has_metallic_roughness_texture;
+        int light_view_projection, direction_to_light, shadows_enabled;
+        int sky_ambient, ground_ambient;
+    } uniforms_{};
 
     const std::thread::id owner_thread_{ std::this_thread::get_id() };
     Application* application_ = nullptr;

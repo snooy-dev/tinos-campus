@@ -73,6 +73,7 @@
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalDependencies Condition="'$(LevelTests)' == 'true'">windowscodecs.lib;ole32.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <ModuleDefinitionFile Condition="'$(LevelTests)' != 'true'">$(MSBuildProjectDirectory)\game.def</ModuleDefinitionFile>
     </Link>
     <Manifest>

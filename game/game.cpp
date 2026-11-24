@@ -1,6 +1,7 @@
 import std;
 import GameApi;
 import Level;
+import <glm/gtc/matrix_transform.hpp>;
 
 namespace
 {
@@ -29,8 +30,29 @@ public:
         auto& scene = level_->GetScene();
         scene.Update(delta_seconds);
         scene.UpdateWorldTransforms();
-        return { scene.GetActiveCamera().GetViewProjectionMatrix(aspect_ratio),
-            scene.CollectRenderItems() };
+        const auto& camera = scene.GetActiveCamera();
+        const auto view = camera.GetViewMatrix();
+        const auto eye = camera.GetProjectionMode() == ProjectionMode::Perspective
+            ? glm::vec4(glm::vec3(camera.GetWorldMatrix()[3]), 1.0f)
+            : glm::vec4(view[0][2], view[1][2], view[2][2], 0.0f);
+        GameFrame frame{ camera.GetProjectionMatrix(aspect_ratio) * view, scene.CollectRenderItems(), eye };
+        frame.direction_to_light = glm::normalize(glm::vec3(0.4f, 1.0f, 0.6f));
+        const glm::vec3 shadow_center(0.0f);
+        const auto up = std::abs(frame.direction_to_light.y) > 0.99f
+            ? glm::vec3(0.0f, 0.0f, 1.0f) : glm::vec3(0.0f, 1.0f, 0.0f);
+        const auto light_view = glm::lookAt(shadow_center + frame.direction_to_light * 40.0f,
+            shadow_center, up);
+        frame.light_view_projection = glm::ortho(-20.0f, 20.0f, -20.0f, 20.0f, 1.0f, 80.0f)
+            * light_view;
+        frame.shadows_enabled = true;
+        frame.sky_ambient = { 0.16f, 0.23f, 0.32f };
+        frame.ground_ambient = { 0.12f, 0.17f, 0.085f };
+        const auto sky_projection = camera.GetProjectionMode() == ProjectionMode::Perspective
+            ? camera.GetProjectionMatrix(aspect_ratio)
+            : glm::perspective(glm::radians(60.0f), aspect_ratio, 0.1f, 10.0f);
+        frame.sky_view_projection = sky_projection * glm::mat4(glm::mat3(view));
+        frame.sky_enabled = true;
+        return frame;
     }
     void Shutdown() override { level_.reset(); }
 

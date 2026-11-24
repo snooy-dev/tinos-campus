@@ -12,4 +12,17 @@
     <ClCompile Include="$(MSBuildThisFileDirectory)application\application.cpp" />
     <ClCompile Include="$(MSBuildThisFileDirectory)application\application.ixx" />
   </ItemGroup>
+  <ItemDefinitionGroup>
+    <Link>
+      <AdditionalDependencies>windowscodecs.lib;ole32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <MeshShaders Include="$(MSBuildThisFileDirectory)..\contents\shaders\pbr.*;$(MSBuildThisFileDirectory)..\contents\shaders\shadow.*;$(MSBuildThisFileDirectory)..\contents\shaders\sky.*" />
+  </ItemGroup>
+  <Target Name="CopyMeshShaders" AfterTargets="Build">
+    <Copy SourceFiles="@(MeshShaders)" DestinationFolder="$(OutDir)contents\shaders" SkipUnchangedFiles="true">
+      <Output TaskParameter="CopiedFiles" ItemName="FileWrites" />
+    </Copy>
+  </Target>
 </Project>

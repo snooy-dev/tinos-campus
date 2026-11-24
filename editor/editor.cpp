@@ -387,9 +387,16 @@ std::expected<void, std::string> Run()
             std::max(1, int(available.x * scale.x)), std::max(1, int(available.y * scale.y)) };
         auto& scene = doc.level.GetScene();
         scene.UpdateWorldTransforms();
+        const auto& view_camera = camera.GetCameraComponent();
+        const auto view = view_camera.GetViewMatrix();
         RenderFrame frame{ state.framebuffer_width, state.framebuffer_height,
-            camera.GetCameraComponent().GetViewProjectionMatrix(float(viewport.width) / viewport.height),
-            scene.CollectRenderItems(), viewport, [] { ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData()); } };
+            view_camera.GetProjectionMatrix(float(viewport.width) / viewport.height) * view,
+            scene.CollectRenderItems() };
+        frame.camera = view_camera.GetProjectionMode() == ProjectionMode::Perspective
+            ? glm::vec4(glm::vec3(view_camera.GetWorldMatrix()[3]), 1.0f)
+            : glm::vec4(view[0][2], view[1][2], view[2][2], 0.0f);
+        frame.viewport = viewport;
+        frame.draw_overlay = [] { ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData()); };
         // The next UI frame may reuse every draw list once this submission completes.
         renderer.SubmitFrame(std::move(frame)).Wait();
     }

@@ -11,6 +11,7 @@ try {
     Copy-Item -LiteralPath (Join-Path $bin 'engine_startup_tests.exe') -Destination $stage
     Copy-Item -Path (Join-Path $bin '*.dll') -Destination $stage
     Copy-Item -LiteralPath (Join-Path $bin 'content') -Destination $stage -Recurse
+    Copy-Item -LiteralPath (Join-Path $bin 'contents') -Destination $stage -Recurse
     $log = Join-Path $stage 'result.log'
     $process = Start-Process -FilePath (Join-Path $stage 'engine_startup_tests.exe') `
         -ArgumentList '--isolated-fixture' -WorkingDirectory $tempRoot -PassThru `

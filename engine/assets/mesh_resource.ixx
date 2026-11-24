@@ -4,10 +4,31 @@ import std;
 import <cassert>;
 export import Transform;
 
+export struct MeshTexture
+{
+    int width = 0, height = 0;
+    int min_filter = 9987, mag_filter = 9729;
+    int wrap_s = 10497, wrap_t = 10497;
+    bool srgb = false;
+    std::vector<std::uint8_t> rgba;
+};
+
+export struct MeshMaterial
+{
+    glm::vec4 base_color{ 1.0f };
+    float metallic = 0.0f, roughness = 1.0f;
+    float alpha_cutoff = -1.0f;
+    bool double_sided = true;
+    std::optional<std::size_t> base_texture, metallic_roughness_texture;
+};
+
 export struct MeshGeometry
 {
     std::vector<glm::vec3> positions;
+    std::vector<glm::vec3> normals;
+    std::vector<glm::vec2> texcoords;
     std::vector<std::uint32_t> indices;
+    MeshMaterial material;
 };
 
 export struct MeshInstance
@@ -20,6 +41,7 @@ export struct MeshData
 {
     std::vector<MeshGeometry> geometries;
     std::vector<MeshInstance> instances;
+    std::vector<MeshTexture> textures;
 };
 
 // Status describes the initial load, not GPU residency after renderer reinitialization.

@@ -82,7 +82,10 @@ void Engine::Run()
         auto frame = game_.Update(delta_seconds, aspect_ratio);
         Simulate(delta_seconds);
         renderer_.SubmitFrame({ state.framebuffer_width, state.framebuffer_height,
-            frame.view_projection, std::move(frame.meshes) });
+            frame.view_projection, std::move(frame.meshes), frame.camera,
+            frame.direction_to_light, frame.light_view_projection, frame.shadows_enabled,
+            frame.sky_ambient, frame.ground_ambient,
+            frame.sky_view_projection, frame.horizon_color, frame.zenith_color, frame.sky_enabled });
     }
 
     Shutdown();
