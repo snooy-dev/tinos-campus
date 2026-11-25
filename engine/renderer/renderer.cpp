@@ -111,6 +111,29 @@ void Renderer::Run()
     }
 }
 
+glm::mat4 Renderer::BindMeshPose(const MeshDraw& draw, const MeshInstance& instance,
+    const Geometry& geometry, const MeshPoseLocations& locations)
+{
+    glUniform1i(locations.morph_count, 0);
+    if (geometry.morph_texture)
+    {
+        const auto& weights = draw.pose.morph_weights[*instance.pose_node];
+        const auto count = static_cast<int>(weights.size());
+        glUniform1i(locations.morph_count, count);
+        glUniform1i(locations.morph_vertex_count, geometry.vertex_count);
+        glUniform1fv(locations.morph_weights, count, weights.data());
+        glActiveTexture(GL_TEXTURE3);
+        glBindTexture(GL_TEXTURE_BUFFER, geometry.morph_texture);
+    }
+    glUniform1i(locations.has_skin, instance.skin.has_value());
+    if (!instance.skin)
+        return draw.world * (instance.pose_node ? draw.pose.nodes[*instance.pose_node] : instance.transform);
+    const auto& palette = draw.pose.skins[*instance.skin];
+    glUniformMatrix4fv(locations.bones, static_cast<int>(palette.size()), GL_FALSE, &palette.front()[0][0]);
+    // The joint palette already transforms vertices into GLB scene space.
+    return draw.world;
+}
+
 void Renderer::RenderShadowMap(const RenderFrame& frame)
 {
     glActiveTexture(GL_TEXTURE2);
@@ -131,8 +154,8 @@ void Renderer::RenderShadowMap(const RenderFrame& frame)
         if (!resource) continue;
         for (const auto& instance : draw.data->instances)
         {
-            const auto model = draw.world * instance.transform;
             const auto& geometry = (*resource)->geometries[instance.geometry];
+            const auto model = BindMeshPose(draw, instance, geometry, shadow_uniforms_.pose);
             const auto& material = draw.data->geometries[instance.geometry].material;
             glUniformMatrix4fv(shadow_uniforms_.model, 1, GL_FALSE, &model[0][0]);
             glUniform1f(shadow_uniforms_.base_alpha, material.base_color.a);
@@ -212,10 +235,10 @@ void Renderer::Render(const RenderFrame& frame)
         }
         for (const auto& instance : draw.data->instances)
         {
-            const auto model = draw.world * instance.transform;
+            const auto& geometry = (*resource)->geometries[instance.geometry];
+            const auto model = BindMeshPose(draw, instance, geometry, uniforms_.pose);
             const auto linear = glm::mat3(model);
             const float determinant = glm::determinant(linear);
-            const auto& geometry = (*resource)->geometries[instance.geometry];
             const auto& material = draw.data->geometries[instance.geometry].material;
             const bool has_normals = geometry.normals != 0 && determinant != 0.0f && std::isfinite(determinant);
             const auto normal = has_normals ? glm::transpose(glm::inverse(linear)) : glm::mat3(1.0f);

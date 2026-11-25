@@ -141,21 +141,30 @@ std::expected<void, const char*> Renderer::InitializeMeshRendering()
     if (!shadow) return std::unexpected(shadow.error());
     shadow_program_ = *shadow;
     const auto uniform = [this](const char* name) { return glGetUniformLocation(program_, name); };
+    const auto pose = [](unsigned program) -> MeshPoseLocations
+    {
+        return { glGetUniformLocation(program, "uHasSkin"), glGetUniformLocation(program, "uBones[0]"),
+            glGetUniformLocation(program, "uMorphCount"), glGetUniformLocation(program, "uMorphWeights[0]"),
+            glGetUniformLocation(program, "uMorphVertexCount") };
+    };
     uniforms_ = { uniform("uViewProjection"), uniform("uModel"), uniform("uNormalMatrix"),
         uniform("uCamera"), uniform("uBaseColor"), uniform("uMetallic"), uniform("uRoughness"),
         uniform("uAlphaCutoff"), uniform("uHasNormals"), uniform("uHasBaseTexture"),
         uniform("uHasMetallicRoughnessTexture"), uniform("uLightViewProjection"),
         uniform("uDirectionToLight"), uniform("uShadowsEnabled"),
-        uniform("uSkyAmbient"), uniform("uGroundAmbient") };
+        uniform("uSkyAmbient"), uniform("uGroundAmbient"), pose(program_) };
     glUseProgram(program_);
     glUniform1i(uniform("uBaseTexture"), 0);
     glUniform1i(uniform("uMetallicRoughnessTexture"), 1);
     glUniform1i(uniform("uShadowMap"), 2);
+    glUniform1i(uniform("uMorphDeltas"), 3);
     glUseProgram(shadow_program_);
     const auto shadow_uniform = [this](const char* name) { return glGetUniformLocation(shadow_program_, name); };
     shadow_uniforms_ = { shadow_uniform("uLightViewProjection"), shadow_uniform("uModel"),
-        shadow_uniform("uBaseAlpha"), shadow_uniform("uAlphaCutoff"), shadow_uniform("uHasBaseTexture") };
+        shadow_uniform("uBaseAlpha"), shadow_uniform("uAlphaCutoff"), shadow_uniform("uHasBaseTexture"),
+        pose(shadow_program_) };
     glUniform1i(shadow_uniform("uBaseTexture"), 0);
+    glUniform1i(shadow_uniform("uMorphDeltas"), 3);
 
     glGenTextures(1, &shadow_depth_);
     glBindTexture(GL_TEXTURE_2D, shadow_depth_);
@@ -301,13 +310,34 @@ std::expected<Renderer::Resource*, const char*> Renderer::Upload(const std::shar
         };
         upload_attribute(geometry.normals, 1, 3, source.normals);
         upload_attribute(geometry.texcoords, 2, 2, source.texcoords);
+        upload_attribute(geometry.joints, 3, 4, source.joints);
+        upload_attribute(geometry.weights, 4, 4, source.weights);
+        if (!source.morph_deltas.empty())
+        {
+            int max_texels = 0;
+            glGetIntegerv(GL_MAX_TEXTURE_BUFFER_SIZE, &max_texels);
+            if (max_texels <= 0 || source.morph_deltas.size() > static_cast<std::size_t>(max_texels))
+                return fail_upload();
+            geometry.vertex_count = static_cast<int>(source.positions.size());
+            glGenBuffers(1, &geometry.morph_buffer);
+            glBindBuffer(GL_TEXTURE_BUFFER, geometry.morph_buffer);
+            glBufferData(GL_TEXTURE_BUFFER, source.morph_deltas.size() * sizeof(glm::vec4),
+                source.morph_deltas.data(), GL_STATIC_DRAW);
+            glGenTextures(1, &geometry.morph_texture);
+            glBindTexture(GL_TEXTURE_BUFFER, geometry.morph_texture);
+            glTexBuffer(GL_TEXTURE_BUFFER, GL_RGBA32F, geometry.morph_buffer);
+            if (!geometry.morph_buffer || !geometry.morph_texture)
+                return fail_upload();
+        }
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, geometry.indices);
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, source.indices.size() * sizeof(std::uint32_t),
             source.indices.data(), GL_STATIC_DRAW);
         geometry.count = static_cast<int>(source.indices.size());
         if (!geometry.vao || !geometry.vertices || !geometry.indices ||
             (!source.normals.empty() && !geometry.normals) ||
-            (!source.texcoords.empty() && !geometry.texcoords) || glGetError() != GL_NO_ERROR)
+            (!source.texcoords.empty() && !geometry.texcoords) ||
+            (!source.joints.empty() && (!geometry.joints || !geometry.weights)) ||
+            glGetError() != GL_NO_ERROR)
             return fail_upload();
     }
     glBindVertexArray(0);
@@ -319,6 +349,10 @@ void Renderer::Release(Resource& resource)
     for (auto& geometry : resource.geometries)
     {
         glDeleteBuffers(1, &geometry.indices);
+        glDeleteTextures(1, &geometry.morph_texture);
+        glDeleteBuffers(1, &geometry.morph_buffer);
+        glDeleteBuffers(1, &geometry.weights);
+        glDeleteBuffers(1, &geometry.joints);
         glDeleteBuffers(1, &geometry.texcoords);
         glDeleteBuffers(1, &geometry.normals);
         glDeleteBuffers(1, &geometry.vertices);

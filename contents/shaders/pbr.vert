@@ -9,6 +9,11 @@ layout(location = 4) in vec4 aWeights;
 uniform bool uHasSkin = false;
 uniform mat4 uBones[32];
 uniform mat4 uModel;
+uniform samplerBuffer uMorphDeltas;
+uniform int uMorphCount;
+uniform int uMorphVertexCount;
+uniform float uMorphWeights[32];
+
 mat4 SkinMatrix()
 {
     if (!uHasSkin) return mat4(1.0);
@@ -26,10 +31,20 @@ out vec4 vLightPosition;
 
 void main()
 {
+    vec3 position = aPosition;
+    vec3 normal = aNormal;
+    for (int target = 0; target < uMorphCount; ++target)
+    {
+        float weight = uMorphWeights[target];
+        if (weight == 0.0) continue;
+        int texel = (target * uMorphVertexCount + gl_VertexID) * 2;
+        position += weight * texelFetch(uMorphDeltas, texel).xyz;
+        normal += weight * texelFetch(uMorphDeltas, texel + 1).xyz;
+    }
     mat4 skin = SkinMatrix();
-    vec4 world = uModel * skin * vec4(aPosition, 1.0);
+    vec4 world = uModel * skin * vec4(position, 1.0);
     vWorldPosition = world.xyz;
-    vWorldNormal = uNormalMatrix * transpose(inverse(mat3(skin))) * aNormal;
+    vWorldNormal = uNormalMatrix * transpose(inverse(mat3(skin))) * normal;
     vTexCoord = aTexCoord;
     vLightPosition = uLightViewProjection * world;
     gl_Position = uViewProjection * world;

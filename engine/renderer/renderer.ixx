@@ -50,6 +50,7 @@ private:
     void Run();
     void Render(const RenderFrame& frame);
     void RenderShadowMap(const RenderFrame& frame);
+
     void RenderSky(const RenderFrame& frame);
     void RenderUi(const RenderFrame& frame);
     std::expected<void, const char*> InitializeUiRendering(unsigned program);
@@ -68,8 +69,16 @@ private:
     struct Geometry
     {
         unsigned vao = 0, vertices = 0, normals = 0, texcoords = 0, indices = 0;
+        unsigned joints = 0, weights = 0, morph_buffer = 0, morph_texture = 0;
+        int vertex_count = 0;
         int count = 0;
     };
+    struct MeshPoseLocations
+    {
+        int has_skin, bones, morph_count, morph_weights, morph_vertex_count;
+    };
+    static glm::mat4 BindMeshPose(const MeshDraw& draw, const MeshInstance& instance,
+        const Geometry& geometry, const MeshPoseLocations& locations);
     struct Resource
     {
         std::weak_ptr<const MeshData> owner;
@@ -95,6 +104,7 @@ private:
     struct ShadowLocations
     {
         int light_view_projection, model, base_alpha, alpha_cutoff, has_base_texture;
+        MeshPoseLocations pose;
     } shadow_uniforms_{};
     struct ShaderLocations
     {
@@ -102,6 +112,7 @@ private:
         int metallic, roughness, alpha_cutoff, has_normals, has_base_texture, has_metallic_roughness_texture;
         int light_view_projection, direction_to_light, shadows_enabled;
         int sky_ambient, ground_ambient;
+        MeshPoseLocations pose;
     } uniforms_{};
 
     const std::thread::id owner_thread_{ std::this_thread::get_id() };

@@ -73,15 +73,17 @@ public:
         asset_ = std::move(asset);
     }
     [[nodiscard]] const std::string& GetAsset() const { return asset_; }
+    void SetAnimationTime(std::optional<double> seconds) { animation_time_ = seconds; }
     void SetColor(glm::vec3 color) { color_ = color; }
     [[nodiscard]] glm::vec3 GetColor() const { return color_; }
     void CollectRenderItems(std::vector<MeshDraw>& items) const override
     {
         if (auto data = mesh_.Data())
-            items.push_back({ std::move(data), GetWorldMatrix(), color_ });
+            items.push_back({ data, GetWorldMatrix(), color_, data->SamplePose(animation_time_) });
     }
 private:
     MeshHandle mesh_;
+    std::optional<double> animation_time_;
     std::string asset_;
     glm::vec3 color_{ 1.0f };
 };
