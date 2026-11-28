@@ -5,7 +5,7 @@ export module Renderer;
 import std;
 import Application;
 import JobSystem;
-import GameUi;
+import GameApi;
 export import MeshResource;
 
 export struct RenderViewport { int x, y, width, height; };
@@ -30,6 +30,14 @@ export struct RenderFrame
     std::function<void()> draw_overlay;
     UiFrame ui;
 };
+
+export inline RenderFrame MakeRenderFrame(int width, int height, GameFrame frame)
+{
+    return { width, height, frame.view_projection, std::move(frame.meshes), frame.camera,
+        frame.direction_to_light, frame.light_view_projection, frame.shadows_enabled,
+        frame.sky_ambient, frame.ground_ambient, frame.sky_view_projection,
+        frame.horizon_color, frame.zenith_color, frame.sky_enabled, {}, {}, std::move(frame.ui) };
+}
 
 // Lifecycle and frame submission belong to the main thread; Application and JobSystem must outlive Renderer.
 export class Renderer

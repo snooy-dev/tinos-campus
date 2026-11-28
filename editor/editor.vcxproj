@@ -68,6 +68,7 @@
       <PreprocessorDefinitions Condition="'$(Platform)'=='Win32'">WIN32;%(PreprocessorDefinitions)</PreprocessorDefinitions>
     </ClCompile>
     <Link>
+      <AdditionalDependencies>d2d1.lib;dwrite.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <Manifest>
@@ -97,6 +98,10 @@
   <Import Project="..\engine\runtime.props" />
   <ItemGroup>
     <ClCompile Include="editor.cpp" />
+    <ClCompile Include="..\game\campus_game.ixx" />
+    <ClCompile Include="..\game\campus_menu.ixx" />
+    <ClCompile Include="..\game\tino.ixx" />
+    <ClCompile Include="..\engine\platform\windows\ui_assets_windows.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

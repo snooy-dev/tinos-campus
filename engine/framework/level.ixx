@@ -26,6 +26,7 @@ export class Level
 public:
     explicit Level(std::filesystem::path content_root);
     [[nodiscard]] static std::expected<std::filesystem::path, std::string> ExecutableContentRoot();
+    [[nodiscard]] std::expected<Level, std::string> Clone(IEngineServices& services) const;
     [[nodiscard]] Scene& GetScene() { return *scene_; }
     [[nodiscard]] std::expected<void, std::string> Open(
         const std::filesystem::path& file, IEngineServices& services);
