@@ -9,7 +9,7 @@ module;
 #include <wincodec.h>
 #include <wrl/client.h>
 
-module Engine;
+module GameUi;
 
 namespace
 {
@@ -53,7 +53,7 @@ std::expected<UiTextureHandle, const char*> ReadPixels(IWICBitmapSource& source,
 }
 }
 
-std::expected<UiTextureHandle, const char*> Engine::LoadUiImage(const std::filesystem::path& path)
+std::expected<UiTextureHandle, const char*> UiAssets::LoadUiImage(const std::filesystem::path& path)
 {
     Imaging imaging;
     ComPtr<IWICBitmapDecoder> decoder;
@@ -73,7 +73,7 @@ std::expected<UiTextureHandle, const char*> Engine::LoadUiImage(const std::files
     return ReadPixels(*converter.Get(), 1.0f);
 }
 
-std::expected<UiTextureHandle, const char*> Engine::CreateUiText(const std::wstring& family,
+std::expected<UiTextureHandle, const char*> UiAssets::CreateUiText(const std::wstring& family,
     float size, std::wstring_view text)
 {
     if (family.empty() || family.contains(L'\0') || !std::isfinite(size) || size <= 0 || size > 256 ||

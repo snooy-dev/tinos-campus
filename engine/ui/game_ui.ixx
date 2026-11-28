@@ -78,6 +78,14 @@ public:
         const std::wstring& family, float size, std::wstring_view text) = 0;
 };
 
+export class UiAssets final : public IUiAssets
+{
+public:
+    std::expected<UiTextureHandle, const char*> LoadUiImage(const std::filesystem::path& path) override;
+    std::expected<UiTextureHandle, const char*> CreateUiText(const std::wstring& family,
+        float size, std::wstring_view text) override;
+};
+
 export enum class UiEventType { Press, Release, Next, Previous, Activate, Escape, Cancel };
 export struct UiEvent { UiEventType type; UiPoint cursor{}; };
 

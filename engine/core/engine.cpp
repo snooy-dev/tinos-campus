@@ -40,7 +40,7 @@ std::expected<void, std::string> Engine::Initialize()
     }
 
     stopping_ = false;
-    const auto game_result = game_.Initialize(*this, *this);
+    const auto game_result = game_.Initialize(*this, ui_assets_);
     if (!game_result)
     {
         Shutdown();
@@ -85,12 +85,8 @@ void Engine::Run()
         if (!gameplay_paused && !frame.gameplay_paused)
             Simulate(delta_seconds);
         gameplay_paused = frame.gameplay_paused;
-        renderer_.SubmitFrame({ state.framebuffer_width, state.framebuffer_height,
-            frame.view_projection, std::move(frame.meshes), frame.camera,
-            frame.direction_to_light, frame.light_view_projection, frame.shadows_enabled,
-            frame.sky_ambient, frame.ground_ambient,
-            frame.sky_view_projection, frame.horizon_color, frame.zenith_color, frame.sky_enabled,
-            {}, {}, std::move(frame.ui) });
+        renderer_.SubmitFrame(MakeRenderFrame(state.framebuffer_width, state.framebuffer_height,
+            std::move(frame)));
     }
 
     Shutdown();

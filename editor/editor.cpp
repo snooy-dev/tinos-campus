@@ -14,6 +14,7 @@ import Renderer;
 import JobSystem;
 import Level;
 import GameApi;
+import CampusGameRuntime;
 import Debug;
 
 namespace
@@ -231,24 +232,26 @@ struct Document
     }
 };
 
-void MoveCamera(CameraActor& camera, float dt)
+void MoveCamera(CameraActor& camera, const Input& input, float dt)
 {
     auto pose = camera.GetLocalTransform();
-    const auto delta = ImGui::GetIO().MouseDelta;
-    pose.rotation = glm::normalize(glm::angleAxis(-delta.x * 0.003f, glm::vec3(0, 1, 0)) *
-        pose.rotation * glm::angleAxis(-delta.y * 0.003f, glm::vec3(1, 0, 0)));
-    const glm::vec3 move{
-        float(ImGui::IsKeyDown(ImGuiKey_D)) - float(ImGui::IsKeyDown(ImGuiKey_A)), 0,
-        float(ImGui::IsKeyDown(ImGuiKey_S)) - float(ImGui::IsKeyDown(ImGuiKey_W)) };
+    pose.rotation = glm::normalize(
+        glm::angleAxis(float(-input.orbit_x) * 0.003f, glm::vec3(0, 1, 0)) *
+        pose.rotation * glm::angleAxis(float(-input.orbit_y) * 0.003f, glm::vec3(1, 0, 0)));
+    glm::vec3 move = pose.rotation * glm::vec3(float(input.move_right), 0, float(-input.move_forward));
+    move.y += float(ImGui::IsKeyDown(ImGuiKey_E)) - float(ImGui::IsKeyDown(ImGuiKey_Q));
     if (glm::dot(move, move) > 0)
-        pose.position += pose.rotation * glm::normalize(move) * (4.0f * std::min(dt, 0.1f));
+    {
+        const float speed = ImGui::GetIO().KeyShift ? 12.0f : 4.0f;
+        pose.position += glm::normalize(move) * (speed * std::min(dt, 0.1f));
+    }
     camera.SetLocalTransform(pose);
 }
 
 std::expected<void, std::string> Run()
 {
     Application app;
-    if (const auto result = app.Initialize(); !result)
+    if (const auto result = app.Initialize(true); !result)
         return std::unexpected(result.error());
     glfwSetWindowTitle(app.Window(), "Tino's Campus Editor");
     JobSystem jobs;
@@ -293,6 +296,10 @@ std::expected<void, std::string> Run()
     bool graphics = false;
     if (platform)
         jobs.SubmitRender([&] { graphics = ImGui_ImplOpenGL3_Init("#version 330"); }).Wait();
+    UiAssets ui_assets;
+    std::optional<CampusGame> preview;
+    bool gameplay_paused = true;
+    bool reset_preview_time = true;
     bool navigating = false;
     while (graphics)
     {
@@ -303,8 +310,13 @@ std::expected<void, std::string> Run()
                 break;
             glfwSetWindowShouldClose(app.Window(), GLFW_FALSE);
         }
+
         if (state.minimized || !state.framebuffer_width || !state.framebuffer_height)
         {
+            navigating = false;
+            reset_preview_time = true;
+            (void)app.SampleInput(true);
+            (void)app.SampleUiInput();
             app.WaitEvents();
             continue;
         }
@@ -323,6 +335,31 @@ std::expected<void, std::string> Run()
             applied_scale = ui_scale;
         }
         ImGui::NewFrame();
+        const bool toggle_preview = ImGui::IsKeyPressed(ImGuiKey_F5, false);
+        bool start_preview = toggle_preview && !preview && !doc.file.empty();
+        if (preview)
+        {
+            if (toggle_preview)
+            {
+                preview.reset();
+                (void)app.SampleInput(true);
+                glfwSetWindowTitle(app.Window(), "Tino's Campus Editor");
+            }
+            else
+            {
+                ImGui::EndFrame();
+                const auto input = app.SampleInput(gameplay_paused);
+                const auto elapsed = std::exchange(reset_preview_time, false) ? 0.0f : io.DeltaTime;
+                auto frame = preview->Update(elapsed,
+                    float(state.framebuffer_width) / state.framebuffer_height,
+                    input, app.SampleUiInput());
+                gameplay_paused = frame.gameplay_paused;
+                renderer.SubmitFrame(MakeRenderFrame(state.framebuffer_width,
+                    state.framebuffer_height, std::move(frame))).Wait();
+                continue;
+            }
+        }
+        (void)app.SampleUiInput();
         const float header = ImGui::GetFrameHeight();
         if (ImGui::BeginMainMenuBar())
         {
@@ -334,12 +371,38 @@ std::expected<void, std::string> Run()
                     doc.Save();
                 ImGui::EndMenu();
             }
+            if (ImGui::MenuItem("Game Preview (F5)", nullptr, false, !doc.file.empty()))
+                start_preview = true;
             const auto title = doc.file.filename().u8string();
             ImGui::TextDisabled("%s%s", reinterpret_cast<const char*>(title.c_str()), doc.dirty ? " *" : "");
             ImGui::EndMainMenuBar();
         }
         if (io.KeyCtrl && ImGui::IsKeyPressed(ImGuiKey_S, false) && doc.dirty)
             doc.Save();
+
+        if (start_preview)
+        {
+            auto snapshot = doc.level.Clone(services);
+            if (!snapshot)
+                doc.error = snapshot.error();
+            else
+            {
+                const auto started = preview.emplace().StartPreview(std::move(*snapshot),
+                    doc.root, services, ui_assets);
+                if (started)
+                {
+                    navigating = false;
+                    gameplay_paused = true;
+                    reset_preview_time = true;
+                    (void)app.SampleInput(true);
+                    glfwSetWindowTitle(app.Window(), "Tino's Campus - Game Preview (F5 to return)");
+                    ImGui::EndFrame();
+                    continue;
+                }
+                doc.error = started.error();
+                preview.reset();
+            }
+        }
 
         const float left = width * 0.22f;
         const float right = width * 0.32f;
@@ -368,17 +431,19 @@ std::expected<void, std::string> Run()
         ImGui::End();
 
         panel("Scene", left, center, ImGuiWindowFlags_NoBackground | ImGuiWindowFlags_NoScrollbar);
-        ImGui::TextDisabled("Perspective   |   RMB + WASD");
+        ImGui::TextDisabled("RMB + WASD to fly, Q/E down/up, Shift to speed up");
         const auto pos = ImGui::GetCursorScreenPos();
         const auto available = ImGui::GetContentRegionAvail();
         ImGui::InvisibleButton("##viewport", { std::max(1.f, available.x), std::max(1.f, available.y) },
             ImGuiButtonFlags_MouseButtonRight);
         if (ImGui::IsItemHovered() && ImGui::IsMouseClicked(ImGuiMouseButton_Right))
             navigating = true;
-        navigating = navigating && state.focused && ImGui::IsMouseDown(ImGuiMouseButton_Right);
+        navigating = navigating && state.focused &&
+            glfwGetMouseButton(app.Window(), GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS;
         auto& camera = doc.camera_scene.GetDefaultCameraActor();
+        const auto flight = app.SampleInput(!navigating);
         if (navigating)
-            MoveCamera(camera, io.DeltaTime);
+            MoveCamera(camera, flight, io.DeltaTime);
         ImGui::End();
         ImGui::Render();
         const auto scale = io.DisplayFramebufferScale;

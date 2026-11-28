@@ -624,6 +624,19 @@ Result<void> Level::Open(const fs::path& file, IEngineServices& services)
     return {};
 }
 
+Result<Level> Level::Clone(IEngineServices& services) const
+{
+    const auto document = Capture(*scene_);
+    if (!document)
+        return std::unexpected(document.error());
+    auto scene = Build(*document, content_root_, &services);
+    if (!scene)
+        return std::unexpected(scene.error());
+    Level clone(content_root_);
+    clone.scene_ = std::move(*scene);
+    return clone;
+}
+
 Result<void> Level::Save(const fs::path& file)
 {
     std::error_code error;
