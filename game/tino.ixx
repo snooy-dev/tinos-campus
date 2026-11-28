@@ -10,13 +10,14 @@ export class Tino final : public Character
 public:
     Tino(Scene& scene, MeshHandle mesh) : Character(scene)
     {
-        AddComponent<MeshComponent>()->SetMesh(std::move(mesh), "tino.glb");
+        body_ = AddComponent<MeshComponent>();
+        body_->SetMesh(std::move(mesh), "tino.glb");
 
         arm_ = AddComponent<CameraArmComponent>();
         Transform pivot;
         pivot.position.y = 1.0f;
         arm_->SetLocalTransform(pivot);
-        arm_->SetOrbit(yaw_, pitch_);
+        arm_->SetOrbit(camera_yaw_, pitch_);
         camera_ = arm_->AttachCamera(5.0f);
     }
 
@@ -29,19 +30,41 @@ public:
         {
             constexpr float sensitivity = glm::radians(0.2f);
             constexpr float pitch_limit = glm::radians(80.0f);
-            yaw_ = std::remainder(yaw_ - static_cast<float>(input_.orbit_x) * sensitivity,
+            camera_yaw_ = std::remainder(camera_yaw_ - static_cast<float>(input_.orbit_x) * sensitivity,
                 2.0f * std::numbers::pi_v<float>);
             pitch_ = std::clamp(pitch_ - static_cast<float>(input_.orbit_y) * sensitivity,
                 -pitch_limit, pitch_limit);
-            arm_->SetOrbit(yaw_, pitch_);
+            arm_->SetOrbit(camera_yaw_, pitch_);
         }
 
         const glm::vec3 direction{ static_cast<float>(input_.move_right), 0.0f,
             -static_cast<float>(input_.move_forward) };
         if (direction != glm::vec3{ 0.0f })
         {
-            const auto heading = glm::angleAxis(yaw_, glm::vec3{ 0.0f, 1.0f, 0.0f });
-            Move(heading * glm::normalize(direction) * 3.0f, delta_seconds);
+            const glm::vec3 up{ 0.0f, 1.0f, 0.0f };
+            const auto camera_heading = glm::angleAxis(camera_yaw_, up);
+            const auto movement = camera_heading * glm::normalize(direction);
+            Move(movement * 3.0f, delta_seconds);
+            walk_time_ += delta_seconds;
+            body_->SetAnimationTime(walk_time_);
+
+            // The Tino mesh faces local +Z.
+            const float target_yaw = std::atan2(movement.x, movement.z);
+            constexpr float full_turn = 2.0f * std::numbers::pi_v<float>;
+            const float remaining = std::remainder(target_yaw - body_yaw_, full_turn);
+            constexpr float turn_speed = glm::radians(540.0f);
+            const float max_turn = turn_speed * static_cast<float>(delta_seconds);
+            body_yaw_ = std::remainder(body_yaw_ + std::clamp(remaining, -max_turn, max_turn),
+                full_turn);
+
+            auto body_transform = body_->GetLocalTransform();
+            body_transform.rotation = glm::angleAxis(body_yaw_, up);
+            body_->SetLocalTransform(body_transform);
+        }
+        else
+        {
+            walk_time_ = 0.0;
+            body_->SetAnimationTime(std::nullopt);
         }
 
         input_ = {};
@@ -49,8 +72,11 @@ public:
 
 private:
     Input input_;
-    float yaw_ = 0.0f;
+    double walk_time_ = 0.0;
+    float camera_yaw_ = 0.0f;
     float pitch_ = glm::radians(-20.0f);
+    float body_yaw_ = 0.0f;
+    MeshComponent* body_ = nullptr;
     CameraArmComponent* arm_ = nullptr;
     CameraComponent* camera_ = nullptr;
 };

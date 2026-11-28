@@ -109,14 +109,17 @@ std::expected<std::shared_ptr<const MeshData>, std::string> MeshLoading::Parse(s
     if (source->file_type != cgltf_file_type_glb || source->buffers_count != 1 ||
         source->buffers[0].uri || !source->bin || source->buffers[0].size > source->bin_size)
         return std::unexpected("Only self-contained GLB geometry is supported.");
-    if (source->extensions_required_count || source->skins_count || source->animations_count)
-        return std::unexpected("Required extensions, skins and animations are not supported.");
+    // shortcut: one clip per asset, add clip selection when characters need more than one action.
+    if (source->extensions_required_count || source->animations_count > 1 ||
+        (source->animations_count && !source->skins_count))
+        return std::unexpected("Only one skeletal animation and no required GLB extensions are supported.");
     for (std::size_t i = 0; i < source->meshes_count; ++i)
         for (std::size_t j = 0; j < source->meshes[i].primitives_count; ++j)
         {
             const auto& p = source->meshes[i].primitives[j];
-            if (p.targets_count || p.has_draco_mesh_compression)
-                return std::unexpected("Morph targets and compressed geometry are not supported.");
+            if (p.has_draco_mesh_compression || p.targets_count > MeshMorphLimit ||
+                (p.targets_count && !source->skins_count))
+                return std::unexpected("Unsupported compressed geometry or morph targets.");
         }
     for (std::size_t i = 0; i < source->buffer_views_count; ++i)
         if (source->buffer_views[i].has_meshopt_compression)
@@ -173,14 +176,20 @@ std::expected<std::shared_ptr<const MeshData>, std::string> MeshLoading::Parse(s
         return {};
     };
     std::unordered_map<const cgltf_primitive*, std::size_t> geometries;
-    struct Node { const cgltf_node* node; glm::mat4 parent; };
+    std::unordered_map<const cgltf_node*, std::size_t> pose_indices;
+    struct Node
+    {
+        const cgltf_node* node;
+        glm::mat4 parent;
+        std::optional<std::size_t> pose_parent;
+    };
     std::vector<Node> pending;
     std::unordered_set<const cgltf_node*> visited;
     for (std::size_t i = scene->nodes_count; i > 0; --i)
         pending.push_back({ scene->nodes[i - 1], glm::mat4{ 1.0f } });
     while (!pending.empty())
     {
-        const auto [node, parent] = pending.back();
+        const auto [node, parent, pose_parent] = pending.back();
         pending.pop_back();
         if (!visited.insert(node).second)
             return std::unexpected("GLB scene hierarchy is not a tree.");
@@ -191,6 +200,41 @@ std::expected<std::shared_ptr<const MeshData>, std::string> MeshLoading::Parse(s
             for (int row = 0; row < 4; ++row)
                 if (!std::isfinite(world[column][row]))
                     return std::unexpected("Non-finite node transform.");
+        std::optional<std::size_t> pose_node, skin;
+        if (source->skins_count)
+        {
+            pose_node = result->pose_nodes.size();
+            pose_indices.emplace(node, *pose_node);
+            MeshPoseNode pose;
+            pose.parent = pose_parent;
+            if (node->has_matrix)
+                pose.matrix = local;
+            else
+            {
+                pose.rest.position = { node->translation[0], node->translation[1], node->translation[2] };
+                pose.rest.rotation = glm::quat(node->rotation[3], node->rotation[0],
+                    node->rotation[1], node->rotation[2]);
+                pose.rest.scale = { node->scale[0], node->scale[1], node->scale[2] };
+                const float rotation_length = glm::length(pose.rest.rotation);
+                if (!std::isfinite(rotation_length) || rotation_length <= 0.0f)
+                    return std::unexpected("Invalid GLB node rotation.");
+                pose.rest.rotation = glm::normalize(pose.rest.rotation);
+            }
+            if (node->mesh && node->mesh->primitives_count)
+            {
+                const auto count = node->mesh->primitives[0].targets_count;
+                const auto* weights = node->weights ? node->weights : node->mesh->weights;
+                const auto weights_count = node->weights ? node->weights_count : node->mesh->weights_count;
+                if (weights && (weights_count != count ||
+                    !std::ranges::all_of(std::span(weights, count), [](float w) { return std::isfinite(w); })))
+                    return std::unexpected("Invalid GLB default morph weights.");
+                pose.morph_weights.resize(count);
+                if (weights) std::copy_n(weights, count, pose.morph_weights.begin());
+            }
+            result->pose_nodes.push_back(std::move(pose));
+        }
+        if (node->skin)
+            skin = node->skin - source->skins;
         if (node->has_mesh_gpu_instancing)
             return std::unexpected("GPU instancing extension is not supported.");
         if (node->mesh)
@@ -205,6 +249,8 @@ std::expected<std::shared_ptr<const MeshData>, std::string> MeshLoading::Parse(s
                     const cgltf_accessor* positions = nullptr;
                     const cgltf_accessor* normals = nullptr;
                     const cgltf_accessor* texcoords = nullptr;
+                    const cgltf_accessor* joints = nullptr;
+                    const cgltf_accessor* weights = nullptr;
                     for (std::size_t a = 0; a < primitive->attributes_count; ++a)
                     {
                         const auto& attribute = primitive->attributes[a];
@@ -212,6 +258,16 @@ std::expected<std::shared_ptr<const MeshData>, std::string> MeshLoading::Parse(s
                         if (attribute.type == cgltf_attribute_type_normal) normals = attribute.data;
                         if (attribute.type == cgltf_attribute_type_texcoord && attribute.index == 0)
                             texcoords = attribute.data;
+                        if (attribute.type == cgltf_attribute_type_joints ||
+                            attribute.type == cgltf_attribute_type_weights)
+                        {
+                            if (attribute.index != 0)
+                                return std::unexpected("Only four bone influences per vertex are supported.");
+                            if (attribute.type == cgltf_attribute_type_joints)
+                                joints = attribute.data;
+                            else
+                                weights = attribute.data;
+                        }
                     }
                     if (!positions || positions->type != cgltf_type_vec3 ||
                         positions->component_type != cgltf_component_type_r_32f ||
@@ -250,6 +306,53 @@ std::expected<std::shared_ptr<const MeshData>, std::string> MeshLoading::Parse(s
                         geometry.texcoords.reserve(positions->count);
                         for (std::size_t i = 0; i < positions->count; ++i)
                             geometry.texcoords.emplace_back(unpacked[i * 2], unpacked[i * 2 + 1]);
+                    }
+                    if (joints || weights)
+                    {
+                        if (!joints || !weights || joints->normalized ||
+                            (weights->component_type != cgltf_component_type_r_32f &&
+                             !(weights->normalized && (weights->component_type == cgltf_component_type_r_8u ||
+                                weights->component_type == cgltf_component_type_r_16u))) ||
+                            (joints->component_type != cgltf_component_type_r_8u &&
+                             joints->component_type != cgltf_component_type_r_16u) ||
+                            !ReadAttribute(*joints, cgltf_type_vec4, positions->count, 4, unpacked))
+                            return std::unexpected("Invalid GLB joint indices.");
+                        for (std::size_t i = 0; i < unpacked.size(); i += 4)
+                            geometry.joints.emplace_back(unpacked[i], unpacked[i + 1], unpacked[i + 2], unpacked[i + 3]);
+                        if (!ReadAttribute(*weights, cgltf_type_vec4, positions->count, 4, unpacked))
+                            return std::unexpected("Invalid GLB joint weights.");
+                        for (std::size_t i = 0; i < unpacked.size(); i += 4)
+                        {
+                            const glm::vec4 weight(unpacked[i], unpacked[i + 1], unpacked[i + 2], unpacked[i + 3]);
+                            const float sum = glm::dot(weight, glm::vec4(1.0f));
+                            if (glm::any(glm::lessThan(weight, glm::vec4(0.0f))) ||
+                                !std::isfinite(sum) || sum <= 0.0f)
+                                return std::unexpected("Invalid GLB vertex weight sum.");
+                            geometry.weights.push_back(weight / sum);
+                        }
+                    }
+                    if (primitive->targets_count)
+                    {
+                        constexpr std::size_t deltas_per_vertex = 2;
+                        const auto stride = primitive->targets_count * deltas_per_vertex;
+                        if (positions->count > geometry.morph_deltas.max_size() / stride)
+                            return std::unexpected("GLB morph data is too large.");
+                        geometry.morph_deltas.resize(positions->count * stride, glm::vec4(0.0f));
+                        for (std::size_t t = 0; t < primitive->targets_count; ++t)
+                            for (std::size_t a = 0; a < primitive->targets[t].attributes_count; ++a)
+                            {
+                                const auto& delta = primitive->targets[t].attributes[a];
+                                if (delta.type != cgltf_attribute_type_position &&
+                                    delta.type != cgltf_attribute_type_normal)
+                                    continue;
+                                if (delta.data->component_type != cgltf_component_type_r_32f ||
+                                    !ReadAttribute(*delta.data, cgltf_type_vec3, positions->count, 3, unpacked))
+                                    return std::unexpected("Invalid GLB morph deltas.");
+                                const std::size_t offset = delta.type == cgltf_attribute_type_normal ? 1 : 0;
+                                for (std::size_t v = 0; v < positions->count; ++v)
+                                    geometry.morph_deltas[(t * positions->count + v) * 2 + offset] =
+                                        glm::vec4(unpacked[v * 3], unpacked[v * 3 + 1], unpacked[v * 3 + 2], 0.0f);
+                            }
                     }
                     if (const auto* material = primitive->material)
                     {
@@ -290,11 +393,112 @@ std::expected<std::shared_ptr<const MeshData>, std::string> MeshLoading::Parse(s
                     result->geometries.push_back(std::move(geometry));
                     found = geometries.emplace(primitive, index).first;
                 }
-                result->instances.push_back({ found->second, world });
+                if (node->skin)
+                {
+                    const auto& indices = result->geometries[found->second].joints;
+                    if (indices.empty() || std::ranges::any_of(indices, [&](const glm::vec4& index) {
+                        return glm::any(glm::greaterThanEqual(index, glm::vec4(float(node->skin->joints_count))));
+                    }))
+                        return std::unexpected("GLB vertex joint index outside skin.");
+                }
+                result->instances.push_back({ found->second, world, skin, pose_node });
             }
         for (std::size_t i = node->children_count; i > 0; --i)
-            pending.push_back({ node->children[i - 1], world });
+            pending.push_back({ node->children[i - 1], world, pose_node });
     }
     if (result->instances.empty()) return std::unexpected("GLB scene contains no mesh.");
+    for (std::size_t s = 0; s < source->skins_count; ++s)
+    {
+        const auto& skin = source->skins[s];
+        if (!skin.joints_count || skin.joints_count > MeshJointLimit)
+            return std::unexpected("GLB skin must contain 1 to 32 joints.");
+        std::vector<float> inverse_bind;
+        if (skin.inverse_bind_matrices &&
+            (skin.inverse_bind_matrices->component_type != cgltf_component_type_r_32f ||
+             !ReadAttribute(*skin.inverse_bind_matrices, cgltf_type_mat4, skin.joints_count, 16, inverse_bind)))
+            return std::unexpected("Invalid GLB inverse bind matrices.");
+        auto& joints = result->skins.emplace_back();
+        for (std::size_t j = 0; j < skin.joints_count; ++j)
+        {
+            const auto node = pose_indices.find(skin.joints[j]);
+            if (node == pose_indices.end())
+                return std::unexpected("GLB skin joint outside active scene.");
+            auto& joint = joints.emplace_back(MeshJoint{ node->second });
+            if (!inverse_bind.empty())
+                std::copy_n(inverse_bind.data() + j * 16, 16, &joint.inverse_bind[0][0]);
+        }
+    }
+
+    if (source->animations_count)
+    {
+        const auto& animation = source->animations[0];
+        float start = std::numeric_limits<float>::max();
+        float end = 0.0f;
+        for (std::size_t i = 0; i < animation.channels_count; ++i)
+        {
+            const auto& channel = animation.channels[i];
+            const auto node = pose_indices.find(channel.target_node);
+            const auto& sampler = *channel.sampler;
+            if (node == pose_indices.end() || result->pose_nodes[node->second].matrix ||
+                (sampler.interpolation != cgltf_interpolation_type_linear &&
+                 sampler.interpolation != cgltf_interpolation_type_step))
+                return std::unexpected("GLB animation requires scene TRS nodes and linear or step sampling.");
+            using Property = MeshAnimationTrack::Property;
+            Property property;
+            switch (channel.target_path)
+            {
+            case cgltf_animation_path_type_translation: property = Property::Translation; break;
+            case cgltf_animation_path_type_rotation: property = Property::Rotation; break;
+            case cgltf_animation_path_type_scale: property = Property::Scale; break;
+            case cgltf_animation_path_type_weights: property = Property::MorphWeights; break;
+            default: return std::unexpected("Unsupported GLB animation target.");
+            }
+            if (std::ranges::any_of(result->tracks, [&](const MeshAnimationTrack& track) {
+                return track.node == node->second && track.property == property;
+            }))
+                return std::unexpected("Duplicate GLB animation track.");
+            auto& track = result->tracks.emplace_back(MeshAnimationTrack{
+                node->second, property, sampler.interpolation == cgltf_interpolation_type_step });
+            const auto& input = *sampler.input;
+            const auto& output = *sampler.output;
+            const bool rotation = property == Property::Rotation;
+            std::vector<float> values;
+            if (input.component_type != cgltf_component_type_r_32f ||
+                output.component_type != cgltf_component_type_r_32f ||
+                !ReadAttribute(input, cgltf_type_scalar, input.count, 1, track.times) ||
+                track.times.front() < 0.0f ||
+                std::adjacent_find(track.times.begin(), track.times.end(), std::greater_equal<>{}) != track.times.end())
+                return std::unexpected("Invalid GLB animation keys.");
+            const std::size_t components = rotation ? 4 : 3;
+            if (property == Property::MorphWeights)
+            {
+                const auto count = result->pose_nodes[node->second].morph_weights.size();
+                if (!count || output.count % count || output.count / count != input.count ||
+                    !ReadAttribute(output, cgltf_type_scalar, output.count, 1, track.morph_values))
+                    return std::unexpected("Invalid GLB morph weight keys.");
+            }
+            else if (!ReadAttribute(output, rotation ? cgltf_type_vec4 : cgltf_type_vec3,
+                input.count, components, values))
+                return std::unexpected("Invalid GLB animation values.");
+            for (std::size_t k = 0; k < values.size(); k += components)
+            {
+                glm::vec4 value(values[k], values[k + 1], values[k + 2], rotation ? values[k + 3] : 0.0f);
+                if (rotation)
+                {
+                    const float length = glm::length(value);
+                    if (!std::isfinite(length) || length <= 0.0f)
+                        return std::unexpected("Invalid GLB animation quaternion.");
+                    value /= length;
+                }
+                track.values.push_back(value);
+            }
+            start = std::min(start, track.times.front());
+            end = std::max(end, track.times.back());
+        }
+        if (!(start < end))
+            return std::unexpected("GLB animation must have a positive duration.");
+        result->animation_start = start;
+        result->animation_duration = end - start;
+    }
     return result;
 }
